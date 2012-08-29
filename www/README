@@ -1,0 +1,13 @@
+This application has only been tested with Google Chrome, and works
+best with all of the available hardware acceleration options enabled:
+
++ GPU compositing on all pages: Enabled
++ Threaded compositing: Enabled
++ GPU Accelerated SVG Filters: Enable (not in use yet)
+
+You can change these by visiting "chrome://flags" in Chrome. You'll need to
+restart your browser to see a change.
+
+These options keep the frame rate > 50fps on my Mac Mini, and appear
+to prevent the Google Chrome Renderer process from exceeding 100% CPU
+(staying on one core and using 7 threads).
