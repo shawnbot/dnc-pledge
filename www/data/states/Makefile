@@ -1,4 +1,4 @@
-STATES ?= WA OR CA
+STATES ?= $(shell cat states.txt)
 STATES_JSON = $(STATES:%=states/%.json)
 
 all: all-min.json
@@ -6,7 +6,7 @@ all: all-min.json
 all-min.json: all.json
 	python liljson.py $< $@
 
-all.json: $(STATES_JSON)
+all.json:
 	python compose.py $(STATES_JSON) > $@
 
 states/%.json: states
