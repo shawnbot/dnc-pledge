@@ -11,3 +11,11 @@ restart your browser to see a change.
 These options keep the frame rate > 50fps on my Mac Mini, and appear
 to prevent the Google Chrome Renderer process from exceeding 100% CPU
 (staying on one core and using 7 threads).
+
+
+Requirements:
+1. Google Maps V3 for JavaScript
+2. d3.js
+
+Assets:
+* Typekit's Proxima Nova (like Gothan): https://typekit.com/fonts/proxima-nova
