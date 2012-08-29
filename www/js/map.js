@@ -130,8 +130,8 @@ d3.csv("data/zips/zips-min.csv", function(rows) {
     time.mark("states.parse");
 
     // how long did this all take?
-    console.log("loaded %d zips in %s (parsed in %s)", zips.length, time.get("zips.load"), time.get("zips.parse"));
-    console.log("loaded %d states in %s (parsed in %s)", states.length, time.get("states.load"), time.get("states.parse"));
+    console.log("%d zips loaded in %s (parsed in %s)", zips.length, time.get("zips.load"), time.get("zips.parse"));
+    console.log("%d states loaded in %s (parsed in %s)", states.length, time.get("states.load"), time.get("states.parse"));
 
     // wait for the projection, then init
     waitForProjection(init);
@@ -179,8 +179,22 @@ function init() {
   var root = d3.select("#overlay"),
       width = root.property("offsetWidth"),
       height = root.property("offsetHeight");
+  // console.log("size:", [width, height]);
 
-  console.log("size:", [width, height]);
+  var controls = root.append("form")
+    .attr("id", "controls")
+    .on("submit", function() {
+        var input = zipInput.node();
+        popZipCode(input.value);
+        input.select();
+        d3.event.preventDefault();
+        return false;
+    });
+  var zipInput = controls.append("label")
+    .text("Zip: ")
+    .append("input")
+      .attr("type", "text")
+      .attr("size", 5);
 
   // create a map projection function and SVG path generator
   var project = (function(x) {
@@ -289,6 +303,12 @@ function init() {
         return "translate(" + d.pos + ")";
       });
 
+  // color scale: pledges -> fill
+  var color = d3.scale.linear()
+    .clamp(true)
+    .domain([0, 20])
+    .range(["#7eb0cc", "#0090c4"]);
+
   // and each cell gets a <rect> in its center
   var squares = cells.append("rect")
     .attr("class", "square")
@@ -296,55 +316,74 @@ function init() {
     .attr("y", -step / 2)
     .attr("width", step)
     .attr("height", step)
-    .attr("fill", "#0090c4")
-    // .attr("fill-opacity", .9)
+    .attr("fill", color(0))
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 1)
+    .attr("stroke-opacity", 0)
     .attr("transform", "scale(0,0)");
+
+  // pre-compute group and siblings for each cell
+  squares.each(function(g, i) {
+    // TODO: get pledge counts from a data file?
+    g.pledges = 0;
+    g.group = d3.select(this.parentNode.parentNode);
+    g.siblings = g.group.selectAll(".cell");
+  });
+
+  time.mark("grid.draw");
+  console.log("%d grid cells computed in %s, drawn in %s", (xi * yi), time.get("grid.compute"), time.get("grid.draw"));
 
   // clicking a square "pops" it
   squares.on("click", pop);
 
-  time.mark("grid.draw");
-
-  console.log("grid took %s to compute, %s to draw", time.get("grid.compute"), time.get("grid.draw"));
-
+  // a single tooltip?
   var tooltip = root.append("div")
     .attr("id", "tooltip");
   tooltip.append("span")
     .attr("class", "text");
 
-  // TODO: document
+  // "pop" a cell rectangle and its siblings:
+  // 1. sort its siblings by distance from itself
+  // 2. scale them all up with a transition, then down again with another
   function pop(g, i) {
     time.reset();
-    var group = d3.select(this.parentNode.parentNode),
-        siblings = group.selectAll(".cell")
-          .each(function(g2) {
-            g2.cdist = distance(g.pos, g2.pos);
+    var maxi = g.state.grid.length - 1,
+        siblings = g.siblings
+          .each(function(g2, j) {
+            g2.cdist = (j === i) ? 0 : distance(g.pos, g2.pos);
           })
           .sort(function(a, b) {
             return a.cdist - b.cdist;
-          })
-          .each(function(g, i) {
-            g.ti = i;
           });
 
-    var maxi = g.state.grid.length - 1;
+    this.parentNode.parentNode.appendChild(this.parentNode);
+    d3.select(this)
+      .attr("stroke-opacity", 1)
+      .attr("fill", color(++g.pledges));
+
     siblings.transition()
       .duration(500)
       .ease("quad-out")
       .select("rect")
-        .delay(function(d) {
-          return d.ti * 5;
+        .delay(function(d, i) {
+          return i * 5;
         })
-        .attr("transform", "scale(1.2,1.2)")
+        .attr("transform", function(d, i) {
+            return (i === 0)
+              ? "scale(2,2)"
+              : "scale(1.1,1.1)";
+        })
         .transition()
           .duration(600)
-          .delay(function(d) {
-            return 500 + maxi * 5 + (maxi - d.ti) * 3;
+          .delay(function(d, i) {
+            return 500 + maxi * 5 + (maxi - i) * 3;
           })
           .ease("quad-in")
-          .attr("transform", "scale(0,0)");
+          .attr("transform", "scale(0,0)")
+          .attr("stroke-opacity", 0);
   }
 
+  // pop a zip by zip code ("94117")
   function popZipCode(code) {
     if (code in zipsByCode) {
       var zip = zipsByCode[code];
@@ -355,30 +394,41 @@ function init() {
     }
   }
 
+  // pop a zip by object (zipsByCode["94117"])
   function popZip(zip) {
+    // get its location, projected position and state
     var loc = [zip.lon, zip.lat],
-        pos = project(loc),
+        pos = zip.pos || (zip.pos = project(loc)),
         state = statesByCode[zip.state];
 
+    // find the corresponding grid square
     var square = d3.select("#" + zip.state)
+      // select all of this zip's state cells
       .selectAll(".cell")
+        // compute distance from this zip code
         .each(function(g, i) {
           g.zdist = distance(g.pos, pos);
         })
+        // sort by distance ascending
         .sort(function(a, b) {
           return a.zdist - b.zdist;
         })
+        // grab the first (closest) one
         .filter(function(d, i) {
           return i === 0;
         })
+        // and select its square
         .select(".square");
 
+    // if ther is no square, tell us and bail
     if (square.empty()) {
       console.warn("no square for %s (%s) @", zip.zip, zip.state, pos, "state:", state);
       return false;
     }
 
+    // call pop() on this square
     square.each(pop);
+    // XXX: use the actual grid square position?
     pos = square.datum().pos;
 
     tooltip
@@ -400,6 +450,7 @@ function init() {
     return true;
   }
 
+  // pop a random zip every n millis
   setInterval(function() {
     var zip = rand(zips);
     popZip(zip);
