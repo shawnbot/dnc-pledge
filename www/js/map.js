@@ -306,7 +306,7 @@ function init() {
   // color scale: pledges -> fill
   var color = d3.scale.linear()
     .clamp(true)
-    .domain([0, 20])
+    .domain([0, 10])
     .range(["#7eb0cc", "#0090c4"]);
 
   // and each cell gets a <rect> in its center
@@ -347,10 +347,11 @@ function init() {
   // 2. scale them all up with a transition, then down again with another
   function pop(g, i) {
     time.reset();
+    // maxi is the # of the state's grid squares minus 1
     var maxi = g.state.grid.length - 1,
         siblings = g.siblings
           .each(function(g2, j) {
-            g2.cdist = (j === i) ? 0 : distance(g.pos, g2.pos);
+            g2.cdist = distance(g.pos, g2.pos);
           })
           .sort(function(a, b) {
             return a.cdist - b.cdist;
@@ -370,7 +371,7 @@ function init() {
         })
         .attr("transform", function(d, i) {
             return (i === 0)
-              ? "scale(2,2)"
+              ? "scale(1.5,1.5)"
               : "scale(1.1,1.1)";
         })
         .transition()
