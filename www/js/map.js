@@ -304,6 +304,13 @@ function init() {
   // clicking a square "pops" it
   squares.on("click", pop);
 
+  time.mark("grid.draw");
+
+  var tooltip = root.append("div")
+    .attr("id", "tooltip");
+  tooltip.append("span")
+    .attr("class", "text");
+
   // TODO: document
   function pop(g, i) {
     time.reset();
@@ -337,14 +344,18 @@ function init() {
           .attr("transform", "scale(0,0)");
   }
 
-  var tooltip = root.append("div")
-    .attr("id", "tooltip");
-  tooltip.append("span")
-    .attr("class", "text");
+  function popZipCode(code) {
+    if (code in zipsByCode) {
+      var zip = zipsByCode[code];
+      return popZip(zip);
+    } else {
+      console.warn("no such zip:", code);
+      return false;
+    }
+  }
 
-  setInterval(function() {
-    var zip = rand(zips),
-        loc = [zip.lon, zip.lat],
+  function popZip(zip) {
+    var loc = [zip.lon, zip.lat],
         pos = project(loc),
         state = statesByCode[zip.state];
 
@@ -385,9 +396,17 @@ function init() {
           .style("opacity", 0);
       });
 
+    return true;
+  }
+
+  setInterval(function() {
+    var zip = rand(zips);
+    popZip(zip);
   }, params.frequency || 1000);
 
-  time.mark("grid.draw");
+  // export more stuff
+  exports.popZipCode = popZipCode;
+  exports.popZip = popZip;
 
   console.log("grid took %s to test, %s to draw", time.get("grid.test"), time.get("grid.draw"));
 }
