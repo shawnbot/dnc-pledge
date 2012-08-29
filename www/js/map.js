@@ -267,13 +267,12 @@ function init() {
     yi++;
   }
 
+  time.mark("grid.compute");
   // console.log("grid:", grid);
 
   // hide all of the shapes
   // (NOTE: Alaska and Hawaii are kept visible in the stylesheet)
   stateShapes.style("visibility", "hidden");
-
-  time.mark("grid.test");
 
   // for each state, create a <g> to contain cells
   var cellGroups = stateGroups.append("g")
@@ -305,6 +304,8 @@ function init() {
   squares.on("click", pop);
 
   time.mark("grid.draw");
+
+  console.log("grid took %s to compute, %s to draw", time.get("grid.compute"), time.get("grid.draw"));
 
   var tooltip = root.append("div")
     .attr("id", "tooltip");
@@ -407,8 +408,6 @@ function init() {
   // export more stuff
   exports.popZipCode = popZipCode;
   exports.popZip = popZip;
-
-  console.log("grid took %s to test, %s to draw", time.get("grid.test"), time.get("grid.draw"));
 }
 
 // pythagorean distance
