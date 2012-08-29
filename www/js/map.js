@@ -2,6 +2,27 @@
 
 var gm = google.maps;
 
+var params = (function(str) {
+  if (str.indexOf("=") > -1) {
+    if (str.charAt(0) === "?") str = str.substr(1);
+    var query = {},
+        parts = str.split("&"),
+        len = parts.length;
+    for (var i = 0; i < len; i++) {
+      var part = parts[i].split("="),
+          key = part[0],
+          val = decodeURIComponent(part[1]),
+          num = parseInt(val);
+      query[key] = !isNaN(num) ? num : val;
+    }
+    return query;
+  } else {
+    return {};
+  }
+})(location.search);
+
+console.log("params:", JSON.stringify(params));
+
 var hide = {"visibility": "off"},
     options = {
       "center":           new gm.LatLng(36, -101),
@@ -65,11 +86,13 @@ var time = {
   }
 };
 
-d3.csv("data/zips/zips.csv", function(rows) {
+d3.csv("data/zips/zips-min.csv", function(rows) {
   time.mark("zips.load");
 
   zips = rows;
   zips.forEach(function(row) {
+    row.lat = parseFloat(row.lat);
+    row.lon = parseFloat(row.lon);
     zipsByCode[row.zip] = row;
   });
 
@@ -121,6 +144,8 @@ function init() {
     .attr("width", "100%")
     .attr("height", "100%");
 
+  var defs = svg.append("defs");
+
   var stateLayer = svg.append("g")
     .attr("class", "states");
 
@@ -157,7 +182,7 @@ function init() {
     state.center = path.centroid(state);
   });
 
-  var step = 16,
+  var step = 14,
       xi = 0, yi = 0,
       grid = [];
   for (var y = step; y < height; y += step) {
@@ -178,7 +203,7 @@ function init() {
     yi++;
   }
 
-  console.log("grid:", grid);
+  // console.log("grid:", grid);
   stateShapes.style("visibility", "hidden");
 
   time.mark("grid.test");
@@ -204,46 +229,87 @@ function init() {
     .attr("y", -step / 2)
     .attr("width", step)
     .attr("height", step)
-    .attr("fill", "#33f")
-    .attr("fill-opacity", .9)
+    .attr("fill", "#0090c4")
+    // .attr("fill-opacity", .9)
     .attr("transform", "scale(0,0)");
 
   squares.on("click", pop);
 
   function pop(g, i) {
-    var cell = d3.select(this),
-        group = d3.select(this.parentNode.parentNode),
-        len = g.state.grid.length - 1,
+    var group = d3.select(this.parentNode.parentNode),
         siblings = group.selectAll(".cell")
           .each(function(g2) {
             g2.cdist = distance(g.pos, g2.pos);
           })
           .sort(function(a, b) {
             return a.cdist - b.cdist;
+          })
+          .each(function(g, i) {
+            g.ti = i;
           });
 
+    var maxi = g.state.grid.length - 1;
     siblings.transition()
       .duration(500)
       .ease("quad-out")
       .select("rect")
-        .delay(function(d, i) {
-          return i * 5;
+        .delay(function(d) {
+          return d.ti * 5;
         })
         .attr("transform", "scale(1.2,1.2)")
         .transition()
           .duration(600)
-          .delay(function(d, i) {
-            return 800 + i * 5;
+          .delay(function(d) {
+            return 500 + maxi * 5 + (maxi - d.ti) * 3;
           })
           .ease("quad-in")
           .attr("transform", "scale(0,0)");
   }
 
+  var tooltip = root.append("div")
+    .attr("id", "tooltip");
+  tooltip.append("span")
+    .attr("class", "text");
+
   setInterval(function() {
-    var g = rand(squares),
-        s = rand(g);
-    d3.select(s).each(pop);
-  }, 250);
+    var zip = rand(zips),
+        loc = [zip.lon, zip.lat],
+        pos = project(loc),
+        state = statesByCode[zip.state];
+
+    var square = d3.select("#" + zip.state)
+      .selectAll(".cell")
+        .each(function(g, i) {
+          g.zdist = distance(g.pos, pos);
+        })
+        .sort(function(a, b) {
+          return a.zdist - b.zdist;
+        })
+        .filter(function(d, i) {
+          return i === 0;
+        })
+        .select(".square");
+
+    square.each(pop);
+    pos = square.datum().pos;
+
+    tooltip
+      .style("left", pos[0] + "px")
+      .style("top", pos[1] + "px")
+      .select(".text")
+        .html("<b>" + zip.zip + "</b><br>" + state.properties.name);
+
+    tooltip.transition()
+      .duration(250)
+      .style("opacity", 1)
+      .each("end", function() {
+        d3.select(this).transition()
+          .delay(500)
+          .duration(500)
+          .style("opacity", 0);
+      });
+
+  }, params.frequency || 1000);
 
   time.mark("grid.draw");
 
