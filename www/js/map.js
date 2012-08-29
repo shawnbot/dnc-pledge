@@ -88,7 +88,7 @@ d3.csv("data/zips/zips.csv", function(rows) {
       scale: .3
     };
     statesByCode.HI.offset = {
-      translate: [750, -150],
+      translate: [820, -80],
       scale: 1
     };
 
@@ -126,26 +126,29 @@ function init() {
 
   time.reset();
 
-  var stateShapes = stateLayer.selectAll("path")
-    .data(states).enter().append("path")
-      .attr("id", function(d, i) {
-        return d.id;
-      })
-      .attr("fill", "#000")
-      .attr("fill-opacity", .2)
-      .attr("stroke", "#f00")
-      .attr("d", path)
-      .attr("transform", function(d, i) {
-        if (d.offset) {
-          var centroid = path.centroid(d),
-              center = project(centroid),
-              scale = d.offset.scale || 1;
-          return "translate(" + d.offset.translate + ") " +
-                 "scale(" + [scale, scale] + ") ";
-        } else {
-          return "";
-        }
+  var stateGroups = stateLayer.selectAll("g")
+    .data(states).enter().append("g")
+      .attr("id", function(d) {
+          return d.id;
       });
+
+  var stateShapes = stateGroups.append("path")
+    .attr("class", "outline")
+    .attr("id", function(d, i) {
+      return "shape-" + d.id;
+    })
+    .attr("d", path)
+    .attr("transform", function(d, i) {
+      if (d.offset) {
+        var centroid = path.centroid(d),
+            center = project(centroid),
+            scale = d.offset.scale || 1;
+        return "translate(" + d.offset.translate + ") " +
+               "scale(" + [scale, scale] + ") ";
+      } else {
+        return "";
+      }
+    });
 
   time.mark("states.render");
 
@@ -154,56 +157,31 @@ function init() {
     state.center = path.centroid(state);
   });
 
-  var bounds = map.getBounds(),
-      ne = bounds.getNorthEast(),
-      sw = bounds.getSouthWest(),
-      north = ne.lat(),
-      south = sw.lat(),
-      east = ne.lng(),
-      west = sw.lng(),
-      step = .5,
+  var step = 16,
+      xi = 0, yi = 0,
       grid = [];
-  console.log("bounds:", bounds, [north, west, south, east]);
-  for (var lat = south; lat <= north; lat += step) {
-    var y = grid.length,
-        row = grid[y] = [],
-        x = 0;
-    for (var lon = west; lon <= east; lon += step) {
-      var c = [lon, lat],
-          p = project(c),
-          el = document.elementFromPoint(p[0], p[1]),
+  for (var y = step; y < height; y += step) {
+    var row = grid[yi] = [],
+        xi = 0;
+    for (var x = step; x < width; x += step) {
+      var el = document.elementFromPoint(x, y),
           d = el ? d3.select(el).datum() : null;
-      // console.log([lon, lat], "->", p);
-      row[x] = d;
+      row[xi] = d;
       if (d) {
         d.grid.push({
-          x: x,
-          y: y,
           state: d,
-          center: c,
-          pos: p
+          pos: [x, y]
         });
       }
-      x++;
+      xi++;
     }
+    yi++;
   }
 
   console.log("grid:", grid);
+  stateShapes.style("visibility", "hidden");
 
   time.mark("grid.test");
-
-  stateLayer.style("display", "none");
-
-  var grid = svg.append("g")
-    .attr("class", "grid");
-
-  var stateGroups = grid.selectAll("g")
-    .data(states).enter().append("g")
-      .attr("class", "state")
-      .attr("id", function(d) { return "grid-" + d.id; })
-      .on("mouseover", function(d, i) {
-          this.parentNode.appendChild(this);
-      });
 
   var cells = stateGroups.selectAll("g")
     .data(function(state) {
@@ -212,21 +190,60 @@ function init() {
         return g;
       });
     }).enter().append("g")
+      .attr("class", "cell")
       .sort(function(a, b) {
         return b.dist - a.dist;
       })
-      .attr("transform", function(g, i) {
-        var scale = .4 + .6 * i / (g.state.grid.length - 1);
-        return "translate(" + g.pos + ") scale(" + [scale, scale] + ")";
+      .attr("transform", function(d, i) {
+        return "translate(" + d.pos + ")";
       });
 
-  var sw = 16, sh = 18;
   var squares = cells.append("rect")
-    .attr("x", -sw / 2)
-    .attr("y", -sh / 2)
-    .attr("width", sw)
-    .attr("height", sh)
-    .attr("fill", "#fff");
+    .attr("class", "square")
+    .attr("x", -step / 2)
+    .attr("y", -step / 2)
+    .attr("width", step)
+    .attr("height", step)
+    .attr("fill", "#33f")
+    .attr("fill-opacity", .9)
+    .attr("transform", "scale(0,0)");
+
+  squares.on("click", pop);
+
+  function pop(g, i) {
+    var cell = d3.select(this),
+        group = d3.select(this.parentNode.parentNode),
+        len = g.state.grid.length - 1,
+        siblings = group.selectAll(".cell")
+          .each(function(g2) {
+            g2.cdist = distance(g.pos, g2.pos);
+          })
+          .sort(function(a, b) {
+            return a.cdist - b.cdist;
+          });
+
+    siblings.transition()
+      .duration(500)
+      .ease("quad-out")
+      .select("rect")
+        .delay(function(d, i) {
+          return i * 5;
+        })
+        .attr("transform", "scale(1.2,1.2)")
+        .transition()
+          .duration(600)
+          .delay(function(d, i) {
+            return 800 + i * 5;
+          })
+          .ease("quad-in")
+          .attr("transform", "scale(0,0)");
+  }
+
+  setInterval(function() {
+    var g = rand(squares),
+        s = rand(g);
+    d3.select(s).each(pop);
+  }, 250);
 
   time.mark("grid.draw");
 
@@ -237,6 +254,10 @@ function distance(p1, p2) {
   var dx = p1[0] - p2[0],
       dy = p1[1] - p2[1];
   return Math.sqrt(dx * dx + dy * dy);
+}
+
+function rand(a) {
+  return a[~~(Math.random() * a.length)];
 }
 
 exports.map = map;
