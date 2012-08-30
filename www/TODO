@@ -1,6 +1,8 @@
 * ensure that DC gets a grid square
-* color individual squares by # pledges?
+* fix projections on AK and HI (these always hit the top left point now)
 
 + pre-compute cell for each zip code?
-+ pre-compute selections of cells for each state?
 + render states in canvas and read pixels? (we could pre-compute this)
+
+- d3 transitions expire when the window loses focus (states getting "stuck"
+  when you tab away). do we care?
