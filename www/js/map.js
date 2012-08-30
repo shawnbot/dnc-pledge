@@ -6,6 +6,15 @@ var urls = {
   "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/commit.csv")
 };
 
+var icons = {
+  "pin": {
+    "url": "http://www.google.com/intl/en_us/mapfiles/ms/icons/yellow-dot.png",
+    "width": 32,
+    "height": 32,
+    "offset": [-16, -32]
+  }
+};
+
 // for brevity!
 var gm = google.maps;
 
@@ -63,16 +72,16 @@ var hide = {"visibility": "off"},
 
 // map options
 var options = {
-      "center":           new gm.LatLng(40, -100),
-      "zoom":             5,
-      "mapTypeId":        gm.MapTypeId.ROADMAP,
-      // no UI
-      "disableDefaultUI": true,
-      // no scroll wheel
-      "scrollwheel":      false,
-      // styled map API stuff
-      "styles": mapStyles
-    };
+  "center":           new gm.LatLng(36, -100),
+  "zoom":             5,
+  "mapTypeId":        gm.MapTypeId.ROADMAP,
+  // no UI
+  "disableDefaultUI": true,
+  // no scroll wheel
+  "scrollwheel":      false,
+  // styled map API stuff
+  "styles": mapStyles
+};
 
 var map = new gm.Map(document.getElementById("map"), options),
     states = [],
@@ -282,7 +291,7 @@ function init() {
     .key(function(z) { return z.state; })
     .map(zips);
 
-  var zipPrecision = parseInt(params.zip_precision) || 0,
+  var zipPrecision = parseInt(params.zip_precision) || 4,
       gridSize = parseFloat(params.grid_size) || 15;
 
   // create a grid array and compute the centroid (in screen coordinates) for
@@ -297,6 +306,7 @@ function init() {
           var z = entry.values[0];
           return {
             state: state,
+            zip: z,
             pos: project([z.lon, z.lat])
           };
         });
@@ -339,6 +349,16 @@ function init() {
     radius = Math.round(gridSize / 1.8);
   }
 
+  // assign "y" properties to each grid square and sort them
+  states.forEach(function(state) {
+    state.grid.forEach(function(g, i) {
+      g.y = g.pos[1];
+    });
+    state.grid.sort(function(a, b) {
+      return a.y - b.y;
+    });
+  });
+
   time.mark("grid.compute");
   // console.log("grid:", grid);
 
@@ -362,26 +382,26 @@ function init() {
       });
 
   // color scale: pledges -> fill
-  var color = d3.scale.linear()
-    .clamp(true)
-    .domain([0, 10])
-    .range(["#00446a", "#c40c0c"]);
+  var colors = {
+      "red": "#c40c0c",
+      "white": "#ffffff",
+      "blue": "#00446a",
+      "gold": "#c8aa43"
+    },
+    color = d3.scale.ordinal()
+      .range([colors.red, colors.white, colors.blue]);
 
-  var doConfetti = params.confetti == "1",
-      confettiColors = ["#c40c0c", "#fff", "#00446a"];
+  var confetti = params.confetti != "0";
 
   // and each cell gets a <rect> in its center
   var squares = cells.append("circle")
     .attr("class", "square")
     .attr("r", radius)
-    .attr("fill", params.confetti == "1"
+    .attr("fill", confetti
         ? function(d, i) {
-            return rand(confettiColors);
-        } : color(0))
-    .attr("stroke", "#fff")
-    .attr("stroke-width", 1)
-    .attr("stroke-opacity", 0)
-    .attr("fill-opacity", .6)
+            return color(Math.random());
+        } : colors.blue)
+    .attr("fill-opacity", .9)
     .attr("transform", "translate(0,0) scale(0,0)");
 
   // pre-compute group and siblings for each cell
@@ -410,67 +430,77 @@ function init() {
   function pop(g, i) {
     time.reset();
     // maxi is the # of the state's grid squares minus 1
-    var maxi = g.state.grid.length - 1,
-        siblings = g.siblings
-          .each(function(g2, j) {
-            g2.cdist = distance(g.pos, g2.pos);
-          })
-          .sort(function(a, b) {
-            return a.cdist - b.cdist;
-          });
+    var siblings = g.siblings
+      .each(function(g2, j) {
+        g2.cdist = distance(g.pos, g2.pos);
+      });
 
-    this.parentNode.parentNode.appendChild(this.parentNode);
+    var sd = siblings.data().sort(function(a, b) {
+      return a.cdist - b.cdist;
+    });
+    var maxi = sd.length - 1,
+        maxd = sd[maxi].cdist;
 
-    if (g.pledges === 0 && doConfetti) {
-      d3.select(this)
-        .attr("fill", color(0));
-    }
     g.pledges++;
 
-    var maxd = ~~(siblings.data()[maxi].cdist + 10),
-        speed = 1000 / 100, // seconds per pixel
-        duration = speed * maxd;
+    var icon = icons.pin,
+        ic = d3.select(this.parentNode)
+          .selectAll(".icon")
+          .data([g.pledges]);
+    var img = ic.enter()
+      .append("g")
+        .attr("class", "icon")
+        .attr("transform", "scale(0,0)")
+        .append("image")
+          .attr("xlink:href", icon.url)
+          .attr("width", icon.width)
+          .attr("height", icon.height)
+          .attr("x", icon.offset[0])
+          .attr("y", icon.offset[1]);
+    ic.transition()
+      .duration(400)
+      .ease("quad-out")
+      .attr("transform", "scale(1,1)");
+
+    var speed = 400, // pixels per second
+        initialDelay = 50,
+        duration1 = initialDelay + 400,
+        secondaryDelay = 100,
+        duration2 = duration1 * 1.6 + secondaryDelay;
 
     siblings.transition()
-      .duration(400)
+      .duration(duration1)
       .ease("quad-out")
       .select(".square")
         .delay(function(d, i) {
-          return (i > 0)
-            ? 200 + i * 2
-            : 0;
+          return initialDelay + (duration1 - initialDelay) * d.cdist / maxd;
         })
         .attr("transform", function(d, i) {
-            var off = (i > 0)
-                ? Math.random() * -50 * (1 - i / maxi)
-                : 0,
-              scale = (i > 0)
-                ? .5 + .5 * Math.random()
-                : 2;
+            var f = d.cdist / maxd,
+              offy = -5 - 10 * (1 - f),
+              scale = .2 + .4 * (1 - f);
+            d.offx = 10 * Math.random() - 5;
             return [
-              "translate(" + [0, off] + ")",
+              "translate(" + [d.offx, offy] + ")",
               "scale(" + [scale, scale] + ")"
             ].join(" ");
         })
         .transition()
-          .duration(600)
+          .duration(duration2)
           .delay(function(d, i) {
-            return 400 + i * 2;
+            return duration1 + secondaryDelay + (duration2 - secondaryDelay) * d.cdist / maxd;
           })
-          .ease("quad-in")
+          .ease("in")
           .attr("transform", function(d, i) {
-            var scale = Math.min(1, d.pledges / 5);
-            // console.log(d.pledges, scale);
-            return "translate(0,0) scale(" + [scale, scale] + ")";
-          })
-          .attr("stroke-opacity", 0);
+            return "translate(" + [d.offx, 0] + ") scale(0,0)";
+          });
   }
 
   // pop a zip by zip code ("94117")
-  function popZipCode(code) {
+  function popZipCode(code, title, subtitle) {
     if (code in zipsByCode) {
       var zip = zipsByCode[code];
-      return popZip(zip);
+      return popZip(zip, title, subtitle);
     } else {
       console.warn("no such zip:", code);
       return false;
@@ -478,14 +508,14 @@ function init() {
   }
 
   // pop a zip by object (zipsByCode["94117"])
-  function popZip(zip) {
+  function popZip(zip, title, subtitle) {
     // get its location, projected position and state
     var loc = [zip.lon, zip.lat],
         pos = zip.pos || (zip.pos = project(loc)),
         state = statesByCode[zip.state];
 
     // find the corresponding grid square
-    var square = d3.select("#" + zip.state)
+    var cells = d3.select("#" + zip.state)
       // select all of this zip's state cells
       .selectAll(".cell")
         // compute distance from this zip code
@@ -495,13 +525,18 @@ function init() {
         // sort by distance ascending
         .sort(function(a, b) {
           return a.zdist - b.zdist;
-        })
-        // grab the first (closest) one
-        .filter(function(d, i) {
-          return i === 0;
-        })
-        // and select its square
-        .select(".square");
+        });
+
+    // grab the first (closest) one
+    var square = cells.filter(function(d, i) {
+        return i === 0;
+      })
+      // and select its square
+      .select(".square");
+
+    cells.sort(function(a, b) {
+      return a.y - b.y;
+    });
 
     // if ther is no square, tell us and bail
     if (square.empty()) {
@@ -514,11 +549,15 @@ function init() {
     // XXX: use the actual grid square position?
     pos = square.datum().pos;
 
+    // defaults
+    title = title || zip.zip;
+    subtitle = subtitle || state.properties.name;
+
     tooltip
       .style("left", pos[0] + "px")
       .style("top", pos[1] + "px")
       .select(".text")
-        .html("<b>" + zip.zip + "</b><br>" + state.properties.name);
+        .html("<b>" + title + "</b><br>" + subtitle);
 
     tooltip.transition()
       .duration(250)
@@ -533,11 +572,36 @@ function init() {
     return true;
   }
 
-  // pop a random zip every n millis
-  setInterval(function() {
-    var zip = rand(zips);
-    popZip(zip);
-  }, params.frequency || 1000);
+  function startPledging() {
+    var msPerLoad = 10 * 60000, // minutes * ms/minute
+        msPerPledge = msPerLoad / pledges.length,
+        list = pledges.slice(),
+        timeout;
+
+    list.sort(function(a, b) {
+        return -1 + Math.random() * 2;
+    });
+
+    function nextPledge() {
+      if (list.length) {
+        var pledge = list.shift(),
+            zip = pledge.zip.substr(0, 5);
+        popZipCode(zip, pledge.name, pledge.city);
+
+        timeout = setTimeout(nextPledge, msPerPledge);
+      } else {
+        var url = urls.pledges + "?time=" + Date.now();
+        d3.csv(url, function(rows) {
+          pleges = data.pledges = rows;
+          startPledging();
+        });
+      }
+    }
+
+    nextPledge();
+  }
+
+  startPledging();
 
   // export more stuff
   exports.popZipCode = popZipCode;
