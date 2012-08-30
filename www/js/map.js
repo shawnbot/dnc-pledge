@@ -6,11 +6,29 @@ var urls = {
   "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/commit.csv")
 };
 
+// color scale: pledges -> fill
+var colors = {
+    "red": "#c40c0c",
+    "white": "#ffffff",
+    "blue": "#00446a",
+    "lightBlue": "#7dafca",
+    "land": "#e5e3df",
+    "gold": "#c8aa43"
+  },
+  color = d3.scale.ordinal()
+    .range([colors.red, colors.white, colors.blue]);
+
 var icons = {
-  "pin": {
+  "pin1": {
     "url": "http://www.google.com/intl/en_us/mapfiles/ms/icons/yellow-dot.png",
     "width": 32,
     "height": 32,
+    "offset": [-16, -32]
+  },
+  "pin2": {
+    "url": "images/blue-pin02.png",
+    "width": 32,
+    "height": 34,
     "offset": [-16, -32]
   }
 };
@@ -150,6 +168,9 @@ d3.csv(urls.zips, function(rows) {
       scale: 1
     };
 
+    statesByCode.AK.inset = true;
+    statesByCode.HI.inset = true;
+
     time.mark("states.parse");
 
     // how long did this all take?
@@ -259,34 +280,6 @@ function init() {
 
   time.reset();
 
-  // a <g> for each state
-  var stateGroups = stateLayer.selectAll("g")
-    .data(states).enter().append("g")
-      .attr("id", function(d) {
-          return d.id;
-      });
-
-  // and a <path> for each outline
-  var stateShapes = stateGroups.append("path")
-    .attr("class", "outline")
-    .attr("id", function(d, i) {
-      return "shape-" + d.id;
-    })
-    .attr("d", path)
-    .attr("transform", function(d, i) {
-      if (d.offset) {
-        var centroid = path.centroid(d),
-            center = project(centroid),
-            scale = d.offset.scale || 1;
-        return "translate(" + d.offset.translate + ") " +
-               "scale(" + [scale, scale] + ") ";
-      } else {
-        return "";
-      }
-    });
-
-  time.mark("states.render");
-
   var zipsByState = d3.nest()
     .key(function(z) { return z.state; })
     .map(zips);
@@ -317,6 +310,46 @@ function init() {
     // state.grid = [];
     state.center = path.centroid(state);
   });
+
+  // sort states by center y
+  states.sort(function(a, b) {
+    return a.center[1] - b.center[1];
+  });
+
+  // a <g> for each state
+  var stateGroups = stateLayer.selectAll("g")
+    .data(states).enter().append("g")
+      .attr("id", function(d) {
+          return d.id;
+      })
+      .classed("inset", function(state) {
+        return state.inset;
+      });
+
+  // and a <path> for each outline
+  var stateShapes = stateGroups.append("path")
+    .attr("class", "outline")
+    .attr("id", function(d, i) {
+      return "shape-" + d.id;
+    })
+    .attr("d", path)
+    .attr("fill", colors.land)
+    .attr("opacity", function(d, i) {
+        return d.inset ? 1 : 0;
+    })
+    .attr("transform", function(d, i) {
+      if (d.offset) {
+        var centroid = path.centroid(d),
+            center = project(centroid),
+            scale = d.offset.scale || 1;
+        return "translate(" + d.offset.translate + ") " +
+               "scale(" + [scale, scale] + ") ";
+      } else {
+        return "";
+      }
+    });
+
+  time.mark("states.render");
 
   // create a grid of size `step` as a 2d array:
   // grid[y][x] = <reference to state object>
@@ -362,10 +395,6 @@ function init() {
   time.mark("grid.compute");
   // console.log("grid:", grid);
 
-  // hide all of the shapes
-  // (NOTE: Alaska and Hawaii are kept visible in the stylesheet)
-  stateShapes.style("visibility", "hidden");
-
   // for each state, create a <g> to contain cells
   var cellGroups = stateGroups.append("g")
     .attr("class", "cells");
@@ -380,16 +409,6 @@ function init() {
       .attr("transform", function(d, i) {
         return "translate(" + d.pos + ")";
       });
-
-  // color scale: pledges -> fill
-  var colors = {
-      "red": "#c40c0c",
-      "white": "#ffffff",
-      "blue": "#00446a",
-      "gold": "#c8aa43"
-    },
-    color = d3.scale.ordinal()
-      .range([colors.red, colors.white, colors.blue]);
 
   var confetti = params.confetti != "0";
 
@@ -435,6 +454,21 @@ function init() {
         g2.cdist = distance(g.pos, g2.pos);
       });
 
+    var shape = d3.select("#shape-" + g.state.id)
+      .transition()
+        .duration(500)
+        .attr("opacity", function(s) {
+            return s.inset ? 1 : .8;
+        })
+        .attr("fill", colors.lightBlue)
+        .transition()
+          .delay(800)
+          .duration(500)
+          .attr("fill", colors.land)
+          .attr("opacity", function(s) {
+            return s.inset ? 1 : 0;
+          });
+
     var sd = siblings.data().sort(function(a, b) {
       return a.cdist - b.cdist;
     });
@@ -443,7 +477,7 @@ function init() {
 
     g.pledges++;
 
-    var icon = icons.pin,
+    var icon = icons.pin2,
         ic = d3.select(this.parentNode)
           .selectAll(".icon")
           .data([g.pledges]);
@@ -460,7 +494,7 @@ function init() {
     ic.transition()
       .duration(400)
       .ease("quad-out")
-      .attr("transform", "scale(1,1)");
+      .attr("transform", "scale(.7,.7)");
 
     var speed = 400, // pixels per second
         initialDelay = 50,
@@ -479,9 +513,8 @@ function init() {
             var f = d.cdist / maxd,
               offy = -5 - 10 * (1 - f),
               scale = .2 + .4 * (1 - f);
-            d.offx = 10 * Math.random() - 5;
             return [
-              "translate(" + [d.offx, offy] + ")",
+              "translate(" + [0, offy] + ")",
               "scale(" + [scale, scale] + ")"
             ].join(" ");
         })
@@ -491,9 +524,7 @@ function init() {
             return duration1 + secondaryDelay + (duration2 - secondaryDelay) * d.cdist / maxd;
           })
           .ease("in")
-          .attr("transform", function(d, i) {
-            return "translate(" + [d.offx, 0] + ") scale(0,0)";
-          });
+          .attr("transform", "translate(0,0) scale(0,0)");
   }
 
   // pop a zip by zip code ("94117")
@@ -588,7 +619,8 @@ function init() {
             zip = pledge.zip.substr(0, 5);
         popZipCode(zip, pledge.name, pledge.city);
 
-        timeout = setTimeout(nextPledge, msPerPledge);
+        var t = msPerPledge * .5 + Math.random() * msPerPledge;
+        timeout = setTimeout(nextPledge, t);
       } else {
         var url = urls.pledges + "?time=" + Date.now();
         d3.csv(url, function(rows) {

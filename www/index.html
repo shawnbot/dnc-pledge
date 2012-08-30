@@ -43,14 +43,13 @@
         }
 
       .states path.outline {
-        fill: #e5e3df;
-        stroke: #a2a1a0;
-        /* stroke-dasharray: 5 3; */
       }
 
-      #shape-AK,
-      #shape-HI {
+      .states .inset path.outline {
         visibility: visible !important;
+        opacity: 1 !important;
+        fill: #e5e3df !important;
+        stroke: #a2a1a0;
       }
 
       #tooltip {
@@ -86,6 +85,10 @@
         line-height: inherit;
       }
 
+      .icon {
+        pointer-events: none;
+      }
+
     </style>
     <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyBFCMVQC44CLXY4WlH_1IMqGDicG-XD2tU&sensor=false"></script>
     <script type="text/javascript" src="js/vendor/d3.v2.min.js"></script>
@@ -98,6 +101,6 @@
       <h1>We&rsquo;ve got your back.</h1>
     </div>
     <div id="overlay"></div>
-    <script type="text/javascript" src="js/map.js"></script>
+    <script type="text/javascript" src="js/map.js?pin2"></script>
   </body>
 </html>
