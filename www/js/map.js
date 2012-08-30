@@ -266,15 +266,16 @@ function init() {
     .key(function(z) { return z.state; })
     .map(zips);
 
-  var zp = parseInt(params.zp) || 0;
+  var zipPrecision = parseInt(params.zip_precision) || 0,
+      gridSize = parseFloat(params.grid_size) || 15;
 
   // create a grid array and compute the centroid (in screen coordinates) for
   // each state
   states.forEach(function(state) {
     var stz = zipsByState[state.id];
-    if (zp > 0) {
+    if (zipPrecision > 0) {
       state.grid = d3.nest()
-        .key(function(z) { return z.zip.substr(0, zp); })
+        .key(function(z) { return z.zip.substr(0, zipPrecision); })
         .entries(stz)
         .map(function(entry) {
           var z = entry.values[0];
@@ -294,8 +295,8 @@ function init() {
   // create a grid of size `step` as a 2d array:
   // grid[y][x] = <reference to state object>
   var radius = 12;
-  if (params.grid_size) {
-    var step = parseFloat(params.grid_size) || 13,
+  if (gridSize > 0 && !zipPrecision) {
+    var step = gridSize,
         xi = 0, yi = 0,
         grid = [];
     for (var y = step; y < height; y += step) {
@@ -319,7 +320,7 @@ function init() {
       yi++;
     }
 
-    radius = Math.round(step / 2 + 3);
+    radius = Math.round(gridSize / 1.6);
   }
 
   time.mark("grid.compute");
@@ -365,7 +366,7 @@ function init() {
     .attr("stroke-width", 1)
     .attr("stroke-opacity", 0)
     .attr("fill-opacity", .6)
-    .attr("transform", "scale(0,0)");
+    .attr("transform", "translate(0,0) scale(0,0)");
 
   // pre-compute group and siblings for each cell
   squares.each(function(g, i) {
@@ -418,9 +419,15 @@ function init() {
           return i * 2;
         })
         .attr("transform", function(d, i) {
-            return (i === 0)
-              ? "scale(1.5,1.5)"
-              : "scale(1.1,1.1)";
+            var off = (i === 0)
+              ? 0
+              : Math.random() * -50 * (1 - i / maxi);
+            return [
+              "translate(" + [0, off] + ")",
+              (i === 0)
+                ? "scale(1.5,1.5)"
+                : "scale(1,1)"
+            ].join(" ");
         })
         .transition()
           .duration(600)
@@ -431,7 +438,7 @@ function init() {
           .attr("transform", function(d, i) {
             var scale = Math.min(1, d.pledges / 5);
             // console.log(d.pledges, scale);
-            return "scale(" + [scale, scale] + ")";
+            return "translate(0,0) scale(" + [scale, scale] + ")";
           })
           .attr("stroke-opacity", 0);
   }
