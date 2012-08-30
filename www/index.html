@@ -23,9 +23,28 @@
         font-weight: 800;
       }
 
+      #banner {
+        background-color: #00446a;
+        width: 100%;
+        height: auto;
+      }
+
+        #banner h1 {
+          font-family: "museo-slab", serif;
+          text-transform: uppercase;
+          font-weight: 700;
+          letter-spacing: 2px;
+          font-size: 72px;
+          line-height: 1em;
+          text-align: center;
+          color: #fff;
+          padding: 20px;
+          margin: 0;
+        }
+
       .states path.outline {
         fill: #e5e3df;
-        stroke: #969692;
+        stroke: #a2a1a0;
         /* stroke-dasharray: 5 3; */
       }
 
@@ -45,13 +64,11 @@
       }
 
         #tooltip .text {
-          background: #fff;
+          /*background: #fff; */
           color: #000;
-          padding: 6px 8px;
-          border: 1px solid #969692;
-          border-radius: 4px;
           display: inline-block;
-          box-shadow: 0 0 6px rgba(0,0,0,.3);
+          /* box-shadow: 0 0 6px rgba(0,0,0,.3); */
+          text-shadow: 0 1 3px #fff;
         }
 
       #controls {
@@ -59,21 +76,26 @@
         bottom: 30px;
         left: 10px;
         font-size: 50px;
+        display: none;
       }
 
       #controls input {
         font-size: inherit;
         line-height: inherit;
       }
+
     </style>
     <script type="text/javascript" src="//maps.googleapis.com/maps/api/js?key=AIzaSyBFCMVQC44CLXY4WlH_1IMqGDicG-XD2tU&sensor=false"></script>
     <script type="text/javascript" src="js/vendor/d3.v2.min.js"></script>
-    <script type="text/javascript" src="//use.typekit.net/aof4rxh.js"></script>
+    <script type="text/javascript" src="//use.typekit.net/aof4rxh.js?foo"></script>
     <script type="text/javascript">try{Typekit.load();}catch(e){}</script>
   </head>
   <body class="tk-proxima-nova">
     <div id="map"></div>
     <div id="overlay"></div>
+    <div id="banner">
+      <h1>We&rsquo;ve got your back.</h1>
+    </div>
     <script type="text/javascript" src="js/map.js"></script>
   </body>
 </html>

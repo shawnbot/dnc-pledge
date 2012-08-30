@@ -23,10 +23,41 @@ var params = (function(str) {
   }
 })(location.search);
 
-// map options
 var hide = {"visibility": "off"},
-    options = {
-      "center":           new gm.LatLng(36, -101),
+    mapStyles = [
+      {
+        "featureType": "road",
+        "stylers": [hide]
+      },
+      {
+        "featureType": "landscape",
+        "stylers": [hide]
+      },
+      {
+        "featureType": "poi",
+        "stylers": [hide]
+      },
+      {
+        "featureType": "administrative",
+        "elementType": "labels",
+        "stylers": [hide]
+      },
+      {
+        "featureType": "water",
+        "elementType": "labels",
+        "stylers": [hide]
+      },
+      {
+        "stylers": [
+          { "saturation": -100 },
+          { "gamma": 0.8 }
+        ]
+      }
+    ];
+
+// map options
+var options = {
+      "center":           new gm.LatLng(40, -100),
       "zoom":             5,
       "mapTypeId":        gm.MapTypeId.ROADMAP,
       // no UI
@@ -34,31 +65,7 @@ var hide = {"visibility": "off"},
       // no scroll wheel
       "scrollwheel":      false,
       // styled map API stuff
-      "styles": [
-        {
-          "featureType": "road",
-          "stylers": [hide]
-        },
-        {
-          "featureType": "landscape",
-          "stylers": [hide]
-        },
-        {
-          "featureType": "poi",
-          "stylers": [hide]
-        },
-        {
-          "featureType": "administrative.locality",
-          "elementType": "labels",
-          "stylers": [hide]
-        },
-        {
-          "stylers": [
-            { "saturation": -81 },
-            { "gamma": 0.71 }
-          ]
-        }
-      ]
+      "styles": mapStyles
     };
 
 var map = new gm.Map(document.getElementById("map"), options),
@@ -123,7 +130,7 @@ d3.csv("data/zips/zips-min.csv", function(rows) {
       scale: .3
     };
     statesByCode.HI.offset = {
-      translate: [820, -80],
+      translate: [800, -120],
       scale: 1
     };
 
@@ -132,6 +139,13 @@ d3.csv("data/zips/zips-min.csv", function(rows) {
     // how long did this all take?
     console.log("%d zips loaded in %s (parsed in %s)", zips.length, time.get("zips.load"), time.get("zips.parse"));
     console.log("%d states loaded in %s (parsed in %s)", states.length, time.get("states.load"), time.get("states.parse"));
+
+    exports.data = {
+      states: states,
+      statesByCode: statesByCode,
+      zips: zips,
+      zipsByCode: zipsByCode
+    };
 
     // wait for the projection, then init
     waitForProjection(init);
@@ -248,37 +262,64 @@ function init() {
 
   time.mark("states.render");
 
+  var zipsByState = d3.nest()
+    .key(function(z) { return z.state; })
+    .map(zips);
+
+  var zp = parseInt(params.zp) || 0;
+
   // create a grid array and compute the centroid (in screen coordinates) for
   // each state
   states.forEach(function(state) {
-    state.grid = [];
+    var stz = zipsByState[state.id];
+    if (zp > 0) {
+      state.grid = d3.nest()
+        .key(function(z) { return z.zip.substr(0, zp); })
+        .entries(stz)
+        .map(function(entry) {
+          var z = entry.values[0];
+          return {
+            state: state,
+            pos: project([z.lon, z.lat])
+          };
+        });
+    } else {
+      state.grid = [];
+    }
+
+    // state.grid = [];
     state.center = path.centroid(state);
   });
 
   // create a grid of size `step` as a 2d array:
   // grid[y][x] = <reference to state object>
-  var step = 14,
-      xi = 0, yi = 0,
-      grid = [];
-  for (var y = step; y < height; y += step) {
-    var row = grid[yi] = [],
-        xi = 0;
-    for (var x = step; x < width; x += step) {
-      // hit test this point, then grab the node's data
-      var el = document.elementFromPoint(x, y),
-          state = el ? d3.select(el).datum() : null;
-      // grid cells can be null
-      row[xi] = state;
-      if (state) {
-        // add this grid cell to the state's grid array
-        state.grid.push({
-          state: state,
-          pos: [x, y]
-        });
+  var radius = 12;
+  if (params.grid_size) {
+    var step = parseFloat(params.grid_size) || 13,
+        xi = 0, yi = 0,
+        grid = [];
+    for (var y = step; y < height; y += step) {
+      var row = grid[yi] = [],
+          xi = 0;
+      for (var x = step; x < width; x += step) {
+        // hit test this point, then grab the node's data
+        var el = document.elementFromPoint(x, y),
+            state = el ? d3.select(el).datum() : null;
+        // grid cells can be null
+        row[xi] = state;
+        if (state) {
+          // add this grid cell to the state's grid array
+          state.grid.push({
+            state: state,
+            pos: [x, y]
+          });
+        }
+        xi++;
       }
-      xi++;
+      yi++;
     }
-    yi++;
+
+    radius = Math.round(step / 2 + 3);
   }
 
   time.mark("grid.compute");
@@ -307,19 +348,23 @@ function init() {
   var color = d3.scale.linear()
     .clamp(true)
     .domain([0, 10])
-    .range(["#7eb0cc", "#0090c4"]);
+    .range(["#00446a", "#c40c0c"]);
+
+  var doConfetti = params.confetti == "1",
+      confettiColors = ["#c40c0c", "#fff", "#00446a"];
 
   // and each cell gets a <rect> in its center
-  var squares = cells.append("rect")
+  var squares = cells.append("circle")
     .attr("class", "square")
-    .attr("x", -step / 2)
-    .attr("y", -step / 2)
-    .attr("width", step)
-    .attr("height", step)
-    .attr("fill", color(0))
+    .attr("r", radius)
+    .attr("fill", params.confetti == "1"
+        ? function(d, i) {
+            return rand(confettiColors);
+        } : color(0))
     .attr("stroke", "#fff")
     .attr("stroke-width", 1)
     .attr("stroke-opacity", 0)
+    .attr("fill-opacity", .6)
     .attr("transform", "scale(0,0)");
 
   // pre-compute group and siblings for each cell
@@ -358,16 +403,19 @@ function init() {
           });
 
     this.parentNode.parentNode.appendChild(this.parentNode);
-    d3.select(this)
-      .attr("stroke-opacity", 1)
-      .attr("fill", color(++g.pledges));
+
+    if (g.pledges === 0 && doConfetti) {
+      d3.select(this)
+        .attr("fill", color(0));
+    }
+    g.pledges++;
 
     siblings.transition()
-      .duration(500)
+      .duration(200)
       .ease("quad-out")
-      .select("rect")
+      .select(".square")
         .delay(function(d, i) {
-          return i * 5;
+          return i * 2;
         })
         .attr("transform", function(d, i) {
             return (i === 0)
@@ -377,10 +425,14 @@ function init() {
         .transition()
           .duration(600)
           .delay(function(d, i) {
-            return 500 + maxi * 5 + (maxi - i) * 3;
+            return 200 + i * 2;
           })
           .ease("quad-in")
-          .attr("transform", "scale(0,0)")
+          .attr("transform", function(d, i) {
+            var scale = Math.min(1, d.pledges / 5);
+            // console.log(d.pledges, scale);
+            return "scale(" + [scale, scale] + ")";
+          })
           .attr("stroke-opacity", 0);
   }
 
@@ -476,12 +528,6 @@ function rand(a) {
 
 // export some stuff
 exports.map = map;
-exports.data = {
-  states: states,
-  statesByCode: statesByCode,
-  zips: zips,
-  zipsByCode: zipsByCode
-};
 exports.overlay = overlay;
 
 })(this);
