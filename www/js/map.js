@@ -1,5 +1,11 @@
 (function(exports) {
 
+var urls = {
+  "zips":     "data/zips/zips-min.csv",
+  "states":   "data/states/all.json",
+  "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/commit.csv")
+};
+
 // for brevity!
 var gm = google.maps;
 
@@ -72,7 +78,8 @@ var map = new gm.Map(document.getElementById("map"), options),
     states = [],
     statesByCode = {},
     zips = [],
-    zipsByCode = {};
+    zipsByCode = {},
+    pledges = [];
 
 // apparently it's better to get the projection from an overlay than the map
 var overlay = new gm.OverlayView();
@@ -99,7 +106,7 @@ var time = {
 };
 
 // load zip code data first
-d3.csv("data/zips/zips-min.csv", function(rows) {
+d3.csv(urls.zips, function(rows) {
   time.mark("zips.load");
 
   // zips[] is our array of zip codes
@@ -116,7 +123,7 @@ d3.csv("data/zips/zips-min.csv", function(rows) {
 
   // then load state outlines
   // TODO: simplify these?
-  d3.json("data/states/all.json", function(collection) {
+  d3.json(urls.states, function(collection) {
     time.mark("states.load");
 
     states = collection.features;
@@ -140,15 +147,24 @@ d3.csv("data/zips/zips-min.csv", function(rows) {
     console.log("%d zips loaded in %s (parsed in %s)", zips.length, time.get("zips.load"), time.get("zips.parse"));
     console.log("%d states loaded in %s (parsed in %s)", states.length, time.get("states.load"), time.get("states.parse"));
 
-    exports.data = {
-      states: states,
-      statesByCode: statesByCode,
-      zips: zips,
-      zipsByCode: zipsByCode
-    };
+    // next, load the pledges
+    d3.csv(urls.pledges, function(rows) {
 
-    // wait for the projection, then init
-    waitForProjection(init);
+      pledges = rows;
+      console.log("pledges:", pledges);
+
+      exports.data = {
+        states: states,
+        statesByCode: statesByCode,
+        zips: zips,
+        zipsByCode: zipsByCode,
+        pledges: pledges
+      };
+
+      // wait for the projection, then init
+      waitForProjection(init);
+
+    });
   });
 });
 
@@ -320,7 +336,7 @@ function init() {
       yi++;
     }
 
-    radius = Math.round(gridSize / 1.6);
+    radius = Math.round(gridSize / 1.8);
   }
 
   time.mark("grid.compute");
@@ -411,28 +427,35 @@ function init() {
     }
     g.pledges++;
 
+    var maxd = ~~(siblings.data()[maxi].cdist + 10),
+        speed = 1000 / 100, // seconds per pixel
+        duration = speed * maxd;
+
     siblings.transition()
-      .duration(200)
+      .duration(400)
       .ease("quad-out")
       .select(".square")
         .delay(function(d, i) {
-          return i * 2;
+          return (i > 0)
+            ? 200 + i * 2
+            : 0;
         })
         .attr("transform", function(d, i) {
-            var off = (i === 0)
-              ? 0
-              : Math.random() * -50 * (1 - i / maxi);
+            var off = (i > 0)
+                ? Math.random() * -50 * (1 - i / maxi)
+                : 0,
+              scale = (i > 0)
+                ? .5 + .5 * Math.random()
+                : 2;
             return [
               "translate(" + [0, off] + ")",
-              (i === 0)
-                ? "scale(1.5,1.5)"
-                : "scale(1,1)"
+              "scale(" + [scale, scale] + ")"
             ].join(" ");
         })
         .transition()
           .duration(600)
           .delay(function(d, i) {
-            return 200 + i * 2;
+            return 400 + i * 2;
           })
           .ease("quad-in")
           .attr("transform", function(d, i) {
