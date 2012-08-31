@@ -40,7 +40,7 @@
 
     header('HTTP/1.1 200');
     header('Cache-Control: public');
-    header('Content-Type: application/json');
+    header("Content-Type: $type");
     header('Last-Modified: '.$req->getResponseHeader('last-modified'));
     header('Date: '.$req->getResponseHeader('date'));
     header('Etag: '.$req->getResponseHeader('etag'));
