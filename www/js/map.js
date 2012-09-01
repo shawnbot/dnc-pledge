@@ -6,17 +6,18 @@ var urls = {
   "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/commit.csv")
 };
 
-// color scale: pledges -> fill
+// colors, confetti ordinal scale
 var colors = {
-    "red": "#c40c0c",
-    "white": "#ffffff",
-    "blue": "#00446a",
-    "lightBlue": "#7dafca",
-    "land": "#e5e3df",
-    "gold": "#c8aa43"
+    "red":        "#E31D3F",
+    "white":      "#ffffff",
+    "darkBlue":   "#00446a",
+    "lightBlue":  "#09BCEF",
+    "state":      "#ccc",
+    "stateHilite":"#eee",
+    "gold":       "#c8aa43"
   },
   color = d3.scale.ordinal()
-    .range([colors.red, colors.white, colors.blue]);
+    .range([colors.red, colors.darkBlue, colors.white, colors.lightBlue]);
 
 var icons = {
   "pin1": {
@@ -26,10 +27,10 @@ var icons = {
     "offset": [-16, -32]
   },
   "pin2": {
-    "url": "images/blue-pin02.png",
-    "width": 32,
-    "height": 34,
-    "offset": [-16, -32]
+    "url": "images/pin_dark_blue.png",
+    "width": 13,
+    "height": 23,
+    "offset": [-6.5, -23]
   }
 };
 
@@ -62,10 +63,12 @@ var hide = {"visibility": "off"},
         "featureType": "road",
         "stylers": [hide]
       },
+      /*
       {
         "featureType": "landscape",
         "stylers": [hide]
       },
+      */
       {
         "featureType": "poi",
         "stylers": [hide]
@@ -81,16 +84,19 @@ var hide = {"visibility": "off"},
         "stylers": [hide]
       },
       {
+        "featureType": "all",
+        "elementType": "all",
         "stylers": [
           { "saturation": -100 },
-          { "gamma": 0.8 }
+          { "lightness": -60 },
+          { "gamma": 1.5 }
         ]
       }
     ];
 
 // map options
 var options = {
-  "center":           new gm.LatLng(36, -100),
+  "center":           new gm.LatLng(39, -100),
   "zoom":             5,
   "mapTypeId":        gm.MapTypeId.ROADMAP,
   // no UI
@@ -160,11 +166,15 @@ d3.csv(urls.zips, function(rows) {
 
     // repositioning info for Alaska and Hawaii
     statesByCode.AK.offset = {
-      translate: [300, 780],
+      translate: [298, 960],
       scale: .3
     };
     statesByCode.HI.offset = {
-      translate: [800, -120],
+      translate: [840, -70],
+      scale: 1
+    };
+    statesByCode.PR.offset = {
+      translate: [112, -95],
       scale: 1
     };
 
@@ -274,9 +284,49 @@ function init() {
   // defs for patterns and effects
   var defs = svg.append("defs");
 
+  // inset rectangles
+  var insetRects = [
+    {
+      "state": "AK",
+      "x": 40,
+      "y": 670,
+      "width": 360,
+      "height": 360
+    },
+    {
+      "state": "HI",
+      "x": 420,
+      "y": 880,
+      "width": 150,
+      "height": 150
+    },
+    {
+      "state": "PR",
+      "x": 1792,
+      "y": 940,
+      "width": 90,
+      "height": 90
+    }
+  ];
+
+  var insets = svg.append("g")
+    .attr("id", "insets")
+    .selectAll("rect")
+      .data(insetRects).enter().append("rect")
+        .attr("class", "inset")
+        .attr("rx", 5)
+        .attr("ry", 5)
+        .attr("x", function(r) { return r.x + "px"; })
+        .attr("y", function(r) { return r.y + "px"; })
+        .attr("width", function(r) { return r.width + "px"; })
+        .attr("height", function(r) { return r.height + "px"; });
+
   // our states layer
-  var stateLayer = svg.append("g")
-    .attr("class", "states");
+  var shapesLayer = svg.append("g")
+    .attr("class", "shapes");
+
+  var pointsLayer = svg.append("g")
+    .attr("class", "points");
 
   time.reset();
 
@@ -296,11 +346,16 @@ function init() {
         .key(function(z) { return z.zip.substr(0, zipPrecision); })
         .entries(stz)
         .map(function(entry) {
-          var z = entry.values[0];
+          var z = entry.values[0],
+              pos = project([z.lon, z.lat]);
+          if (state.offset) {
+            pos[0] = pos[0] * state.offset.scale + state.offset.translate[0];
+            pos[1] = pos[1] * state.offset.scale + state.offset.translate[1];
+          }
           return {
             state: state,
             zip: z,
-            pos: project([z.lon, z.lat])
+            pos: pos
           };
         });
     } else {
@@ -317,7 +372,7 @@ function init() {
   });
 
   // a <g> for each state
-  var stateGroups = stateLayer.selectAll("g")
+  var shapeGroups = shapesLayer.selectAll("g")
     .data(states).enter().append("g")
       .attr("id", function(d) {
           return d.id;
@@ -327,16 +382,13 @@ function init() {
       });
 
   // and a <path> for each outline
-  var stateShapes = stateGroups.append("path")
+  var stateShapes = shapeGroups.append("path")
     .attr("class", "outline")
     .attr("id", function(d, i) {
       return "shape-" + d.id;
     })
     .attr("d", path)
-    .attr("fill", colors.land)
-    .attr("opacity", function(d, i) {
-        return d.inset ? 1 : 0;
-    })
+    .attr("fill", colors.state)
     .attr("transform", function(d, i) {
       if (d.offset) {
         var centroid = path.centroid(d),
@@ -395,8 +447,18 @@ function init() {
   time.mark("grid.compute");
   // console.log("grid:", grid);
 
+  // a <g> for each state
+  var pointGroups = pointsLayer.selectAll("g")
+    .data(states).enter().append("g")
+      .attr("id", function(d) {
+          return "points-" + d.id;
+      })
+      .classed("inset", function(state) {
+        return state.inset;
+      });
+
   // for each state, create a <g> to contain cells
-  var cellGroups = stateGroups.append("g")
+  var cellGroups = pointGroups.append("g")
     .attr("class", "cells");
 
   // and create a <g> for each cell within those
@@ -419,7 +481,7 @@ function init() {
     .attr("fill", confetti
         ? function(d, i) {
             return color(Math.random());
-        } : colors.blue)
+        } : colors.darkBlue)
     .attr("fill-opacity", .9)
     .attr("transform", "translate(0,0) scale(0,0)");
 
@@ -435,7 +497,13 @@ function init() {
   console.log("%d grid cells computed in %s, drawn in %s", (xi * yi), time.get("grid.compute"), time.get("grid.draw"));
 
   // clicking a square "pops" it
-  squares.on("click", pop);
+  pointGroups.on("click", function(state) {
+    console.log("click:", d3.event, state);
+    var e = d3.event,
+        pos = d3.mouse(root.node());
+    var result = popPoint(pos, state.id, "Click M.", state.properties.name);
+    console.log("popPoint(", [pos, state.id], "):", result);
+  });
 
   // a single tooltip?
   var tooltip = root.append("div")
@@ -457,17 +525,13 @@ function init() {
     var shape = d3.select("#shape-" + g.state.id)
       .transition()
         .duration(500)
-        .attr("opacity", function(s) {
-            return s.inset ? 1 : .8;
-        })
-        .attr("fill", colors.lightBlue)
+        .ease("in")
+        .attr("fill", colors.stateHilite)
         .transition()
-          .delay(800)
-          .duration(500)
-          .attr("fill", colors.land)
-          .attr("opacity", function(s) {
-            return s.inset ? 1 : 0;
-          });
+          .delay(600)
+          .duration(30000)
+          .ease("out")
+          .attr("fill", colors.state);
 
     var sd = siblings.data().sort(function(a, b) {
       return a.cdist - b.cdist;
@@ -494,7 +558,7 @@ function init() {
     ic.transition()
       .duration(400)
       .ease("quad-out")
-      .attr("transform", "scale(.7,.7)");
+      .attr("transform", "scale(1,1)");
 
     var speed = 400, // pixels per second
         initialDelay = 50,
@@ -538,15 +602,9 @@ function init() {
     }
   }
 
-  // pop a zip by object (zipsByCode["94117"])
-  function popZip(zip, title, subtitle) {
-    // get its location, projected position and state
-    var loc = [zip.lon, zip.lat],
-        pos = zip.pos || (zip.pos = project(loc)),
-        state = statesByCode[zip.state];
-
+  function popPoint(pos, state, title, subtitle) {
     // find the corresponding grid square
-    var cells = d3.select("#" + zip.state)
+    var cells = d3.select("#points-" + state)
       // select all of this zip's state cells
       .selectAll(".cell")
         // compute distance from this zip code
@@ -580,10 +638,6 @@ function init() {
     // XXX: use the actual grid square position?
     pos = square.datum().pos;
 
-    // defaults
-    title = title || zip.zip;
-    subtitle = subtitle || state.properties.name;
-
     tooltip
       .style("left", pos[0] + "px")
       .style("top", pos[1] + "px")
@@ -603,6 +657,20 @@ function init() {
     return true;
   }
 
+  // pop a zip by object (zipsByCode["94117"])
+  function popZip(zip, title, subtitle) {
+    // get its location, projected position and state
+    var loc = [zip.lon, zip.lat],
+        pos = zip.pos || (zip.pos = project(loc)),
+        state = statesByCode[zip.state];
+
+    // defaults
+    title = title || zip.zip;
+    subtitle = subtitle || state.properties.name;
+
+    return popPoint(pos, zip.state, title, subtitle);
+  }
+
   function startPledging() {
     var msPerLoad = 10 * 60000, // minutes * ms/minute
         msPerPledge = msPerLoad / pledges.length,
@@ -611,6 +679,7 @@ function init() {
 
     list.sort(function(a, b) {
         return -1 + Math.random() * 2;
+        // return d3.ascending(a.name, b.name);
     });
 
     function nextPledge() {
