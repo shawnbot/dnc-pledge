@@ -40,14 +40,14 @@
 
     header('HTTP/1.1 200');
     header('Cache-Control: public');
-    header("Content-Type: $type");
+    header("Content-Type: $type;encoding=utf-8");
     header('Last-Modified: '.$req->getResponseHeader('last-modified'));
     header('Date: '.$req->getResponseHeader('date'));
     header('Etag: '.$req->getResponseHeader('etag'));
     if ($callback) {
         printf("%s(%s);\n", $callback, $req->getResponseBody());
     } else {
-        print $req->getResponseBody();
+        print iconv("ISO-8859-1", "UTF-8", $req->getResponseBody());
     }
     exit();
 
