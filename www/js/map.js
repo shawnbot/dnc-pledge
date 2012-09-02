@@ -1,42 +1,5 @@
 (function(exports) {
 
-var urls = {
-  "zips":     "data/zips/zips-min.csv",
-  "states":   "data/states/all.json",
-  "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/commit.csv")
-};
-
-// colors, confetti ordinal scale
-var colors = {
-    "red":        "#E31D3F",
-    "white":      "#ffffff",
-    "darkBlue":   "#00446a",
-    "lightBlue":  "#09BCEF",
-    "state":      "#ccc",
-    "stateHilite":"#eee",
-    "gold":       "#c8aa43"
-  },
-  color = d3.scale.ordinal()
-    .range([colors.red, colors.darkBlue, colors.white, colors.lightBlue]);
-
-var icons = {
-  "pin1": {
-    "url": "http://www.google.com/intl/en_us/mapfiles/ms/icons/yellow-dot.png",
-    "width": 32,
-    "height": 32,
-    "offset": [-16, -32]
-  },
-  "pin2": {
-    "url": "images/pin_dark_blue.png",
-    "width": 13,
-    "height": 23,
-    "offset": [-6.5, -23]
-  }
-};
-
-// for brevity!
-var gm = google.maps;
-
 // parse query string params
 var params = (function(str) {
   if (str.indexOf("=") > -1) {
@@ -56,6 +19,54 @@ var params = (function(str) {
     return {};
   }
 })(location.search);
+
+console.log("params:", JSON.stringify(params));
+
+var TESTING = params.test === 1,
+    commitURI = params.uri || (TESTING ? "commit.csv" : "commit2vote.csv");
+console.log("commit URI:", commitURI);
+var urls = {
+  "zips":     "data/zips/zipcodes.csv",
+  "states":   "data/states/all.json",
+  "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/" + commitURI)
+};
+
+// colors, confetti ordinal scale
+var colors = {
+    "red":        "#E31D3F",
+    "white":      "#ffffff",
+    "darkBlue":   "#00446a",
+    "lightBlue":  "#09BCEF",
+    "stateOff":   "#dde2e9",
+    "stateOn":    "#08aaf9",
+    "gold":       "#c8aa43"
+  },
+  color = d3.scale.ordinal()
+    .range([colors.red, colors.darkBlue, colors.white, colors.lightBlue]);
+
+var icons = {
+  "pin1": {
+    "url": "http://www.google.com/intl/en_us/mapfiles/ms/icons/yellow-dot.png",
+    "width": 32,
+    "height": 32,
+    "offset": [-16, -32]
+  },
+  "pin2": {
+    "url": "images/pin_dark_blue.png",
+    "width": 13,
+    "height": 23,
+    "offset": [-6.5, -23]
+  },
+  "dnc": {
+    "url": "images/dnc-pin02.png",
+    "width": 48,
+    "height": 48,
+    "offset": [-24, -46]
+  }
+};
+
+// for brevity!
+var gm = google.maps;
 
 var hide = {"visibility": "off"},
     mapStyles = [
@@ -93,6 +104,32 @@ var hide = {"visibility": "off"},
         ]
       }
     ];
+
+// from Geraldine's comp
+mapStyles = [
+  {
+    "stylers": [
+      { "color": "#426188" }
+    ]
+  },{
+    "stylers": [
+      { "visibility": "off" }
+    ]
+  },{
+    "featureType": "landscape",
+    "elementType": "geometry",
+    "stylers": [
+      { "visibility": "on" }
+    ]
+  },{
+    "featureType": "water",
+    "elementType": "geometry",
+    "stylers": [
+      { "visibility": "on" },
+      { "color": "#2e4d75" }
+    ]
+  }
+];
 
 // map options
 var options = {
@@ -388,7 +425,7 @@ function init() {
       return "shape-" + d.id;
     })
     .attr("d", path)
-    .attr("fill", colors.state)
+    .attr("fill", colors.stateOff)
     .attr("transform", function(d, i) {
       if (d.offset) {
         var centroid = path.centroid(d),
@@ -437,6 +474,9 @@ function init() {
   // assign "y" properties to each grid square and sort them
   states.forEach(function(state) {
     state.grid.forEach(function(g, i) {
+      // round grid positions
+      g.pos[0] = ~~(g.pos[0] + .5);
+      g.pos[1] = ~~(g.pos[1] + .5);
       g.y = g.pos[1];
     });
     state.grid.sort(function(a, b) {
@@ -526,12 +566,12 @@ function init() {
       .transition()
         .duration(500)
         .ease("in")
-        .attr("fill", colors.stateHilite)
+        .attr("fill", colors.stateOn)
         .transition()
           .delay(600)
           .duration(30000)
           .ease("out")
-          .attr("fill", colors.state);
+          .attr("fill", colors.stateOff);
 
     var sd = siblings.data().sort(function(a, b) {
       return a.cdist - b.cdist;
@@ -541,10 +581,17 @@ function init() {
 
     g.pledges++;
 
-    var icon = icons.pin2,
+    var speed = 400, // pixels per second
+        initialDelay = 50,
+        duration1 = initialDelay + 400,
+        secondaryDelay = 100,
+        duration2 = duration1 * 1.6 + secondaryDelay;
+
+    var icon = icons.dnc,
         ic = d3.select(this.parentNode)
           .selectAll(".icon")
           .data([g.pledges]);
+
     var img = ic.enter()
       .append("g")
         .attr("class", "icon")
@@ -555,28 +602,31 @@ function init() {
           .attr("height", icon.height)
           .attr("x", icon.offset[0])
           .attr("y", icon.offset[1]);
+
+    var iconDuration1 = duration1 + .8,
+        iconDuration2 = duration2 / 4;
     ic.transition()
-      .duration(400)
-      .ease("quad-out")
-      .attr("transform", "scale(1,1)");
+      .duration(iconDuration1)
+      .ease("in")
+      .attr("transform", "scale(1,1)")
+      .transition()
+        .delay(iconDuration1 + 1)
+        .duration(iconDuration2)
+        .attr("transform", "scale(.8,.8)")
 
-    var speed = 400, // pixels per second
-        initialDelay = 50,
-        duration1 = initialDelay + 400,
-        secondaryDelay = 100,
-        duration2 = duration1 * 1.6 + secondaryDelay;
-
+    var startDelay = 150;
     siblings.transition()
+      .delay(startDelay)
       .duration(duration1)
       .ease("quad-out")
       .select(".square")
         .delay(function(d, i) {
-          return initialDelay + (duration1 - initialDelay) * d.cdist / maxd;
+          return startDelay + initialDelay + (duration1 - initialDelay) * d.cdist / maxd;
         })
         .attr("transform", function(d, i) {
             var f = d.cdist / maxd,
               offy = -5 - 10 * (1 - f),
-              scale = .2 + .4 * (1 - f);
+              scale = .1 + (.2 + Math.random() * .3) * (1 - f);
             return [
               "translate(" + [0, offy] + ")",
               "scale(" + [scale, scale] + ")"
@@ -585,7 +635,7 @@ function init() {
         .transition()
           .duration(duration2)
           .delay(function(d, i) {
-            return duration1 + secondaryDelay + (duration2 - secondaryDelay) * d.cdist / maxd;
+            return startDelay + duration1 + secondaryDelay + (duration2 - secondaryDelay) * d.cdist / maxd;
           })
           .ease("in")
           .attr("transform", "translate(0,0) scale(0,0)");
@@ -666,14 +716,20 @@ function init() {
 
     // defaults
     title = title || zip.zip;
-    subtitle = subtitle || state.properties.name;
+    if (zip.city) {
+      subtitle = subtitle || [zip.city, zip.state].join(", ");
+    } else {
+      subtitle = subtitle || state.properties.name;
+    }
 
     return popPoint(pos, zip.state, title, subtitle);
   }
 
   function startPledging() {
-    var msPerLoad = 10 * 60000, // minutes * ms/minute
-        msPerPledge = msPerLoad / pledges.length,
+    var msPerLoad = (TESTING ? 10 : 1) * 60000, // minutes * ms/minute
+        msPerPledge = (pledges.length > 1)
+          ? msPerLoad / (pledges.length - 1)
+          : msPerLoad / 2,
         list = pledges.slice(),
         timeout;
 
@@ -691,7 +747,8 @@ function init() {
         var t = msPerPledge * .5 + Math.random() * msPerPledge;
         timeout = setTimeout(nextPledge, t);
       } else {
-        var url = urls.pledges + "?time=" + Date.now();
+        var url = urls.pledges;
+        url += (url.indexOf("?") > -1 ? "?" : "&") + "?ime=" + Date.now();
         d3.csv(url, function(rows) {
           pleges = data.pledges = rows;
           startPledging();
