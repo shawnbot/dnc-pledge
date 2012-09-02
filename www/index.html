@@ -18,6 +18,12 @@
           width: 1920px;
           height: 1080px;
           overflow: hidden;
+          background: #2e4d75 !important;
+      }
+
+      /* kill the google maps background-color */
+      * > #map {
+        background-color: transparent !important;
       }
 
       b {
@@ -25,7 +31,10 @@
       }
 
       #banner {
-        background-color: #00446a;
+        background-color: #09BCEF;
+        background-image: url(http://static.demconvention.com/wp-content/themes/dnc/site-art/bg-header.jpg);
+        background-position: bottom center;
+        background-repeat: repeat-x;
         width: 100%;
         height: auto;
       }
@@ -44,14 +53,14 @@
         }
 
       #insets .inset {
-        fill: #787878;
-        stroke: #595959;
+        fill: #2e4d75;
+        stroke: #183d67;
         stroke-width: 4;
       }
 
       .shapes path.outline {
-        stroke: #a2a1a0;
-        /* fill-opacity: .6; */
+        stroke: #bcc6d7;
+        stroke-width: 1;
       }
 
       #tooltip {
@@ -103,9 +112,9 @@
   <body class="tk-proxima-nova">
     <div id="map"></div>
     <div id="banner">
-      <h1>We&rsquo;ve got your back.</h1>
+      <h1>We stand with Barack Obama.</h1>
     </div>
     <div id="overlay"></div>
-    <script type="text/javascript" src="js/map.js?pin2"></script>
+    <script type="text/javascript" src="js/map.js"></script>
   </body>
 </html>
