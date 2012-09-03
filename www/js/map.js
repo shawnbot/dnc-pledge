@@ -285,6 +285,10 @@ function init() {
       center = [width / 2, height / 2];
   // console.log("size:", [width, height]);
 
+  // allow map tiles to bleed
+  var makeVisible = d3.selectAll("#map, #map div")
+    .style("overflow", "visible");
+
   // create a map projection function and SVG path generator
   var project = (function(x) {
       return function(x) {
