@@ -21,6 +21,11 @@
           background: #2e4d75;
       }
 
+      #map, #overlay {
+        width: 80%;
+        margin: 0 10%;
+      }
+
       /* kill the google maps background-color */
       * > #map {
         background: transparent !important;
@@ -44,7 +49,7 @@
         #banner h1 {
           color: #fff;
           /* font-family: "museo-slab", serif; */
-          font-size: 90px;
+          font-size: 86px;
           font-weight: 700;
           letter-spacing: .08em;
           line-height: 1em;
@@ -78,11 +83,15 @@
           white-space: pre;
         }
 
-        #tooltip .text {
-          /* color: #09BCEF; */
+        #tooltip .text span {
+          display: block;
         }
-        #tooltip .text b {
-          color: #fff;
+
+        #tooltip .title {
+          font-weight: 800;
+        }
+        #tooltip .subtitle {
+          /* font-size: 50px; */
         }
 
       .icon {

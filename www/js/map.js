@@ -134,7 +134,7 @@ mapStyles = [
 
 // map options
 var options = {
-  "center":           new gm.LatLng(40, -100),
+  "center":           new gm.LatLng(38.5, -95),
   "zoom":             5,
   "mapTypeId":        gm.MapTypeId.ROADMAP,
   // no UI
@@ -205,23 +205,6 @@ d3.csv(urls.zips, function(rows) {
       statesByCode[feature.id] = feature;
     });
 
-    // repositioning info for Alaska and Hawaii
-    statesByCode.AK.offset = {
-      translate: [300, 945],
-      scale: .3
-    };
-    statesByCode.HI.offset = {
-      translate: [840, -100],
-      scale: 1
-    };
-    statesByCode.PR.offset = {
-      translate: [112, -126],
-      scale: 1
-    };
-
-    statesByCode.AK.inset = true;
-    statesByCode.HI.inset = true;
-
     time.mark("states.parse");
 
     // how long did this all take?
@@ -290,8 +273,13 @@ function init() {
   // get the overlay div as a d3 selection,
   // and get its screen dimensions
   var root = d3.select("#overlay"),
-      width = root.property("offsetWidth"),
-      height = root.property("offsetHeight"),
+      mapr = d3.select("#map"),
+      offset = [
+        mapr.property("offsetLeft"),
+        mapr.property("offsetTop")
+      ],
+      width = mapr.property("offsetWidth"),
+      height = mapr.property("offsetHeight"),
       center = [width / 2, height / 2];
   // console.log("size:", [width, height]);
 
@@ -307,35 +295,54 @@ function init() {
 
   // create our SVG node
   var svg = root.append("svg")
-    .attr("width", "100%")
-    .attr("height", "100%");
+    .attr("width", width)
+    .attr("height", height);
 
   // defs for patterns and effects
   var defs = svg.append("defs");
+
+  // repositioning info for Alaska and Hawaii
+  statesByCode.AK.offset = {
+    translate: [304, 984],
+    scale: .25
+  };
+  statesByCode.HI.offset = {
+    translate: [1078, -48],
+    scale: 1
+  };
+  statesByCode.PR.offset = {
+    translate: [0, -84],
+    scale: 1
+  };
+
+  statesByCode.AK.inset = true;
+  statesByCode.HI.inset = true;
+  statesByCode.PR.inset = true;
 
   // inset rectangles
   var insetRects = [
     {
       "state": "AK",
-      "x": 40,
-      "y": 670,
-      "width": 360,
-      "height": 360
+      "x": 2,
+      "y": 750,
+      "width": 315,
+      "height": 280
     },
     {
       "state": "HI",
-      "x": 420,
-      "y": 880,
+      "x": 352,
+      "y": 900,
       "width": 150,
-      "height": 150
+      "height": 130
     },
     {
       "state": "PR",
-      "x": 1792,
+      "x": 1374,
       "y": 940,
       "width": 90,
       "height": 90
     }
+    // TODO: Guam? (needs data)
   ];
 
   var insets = svg.append("g")
@@ -346,10 +353,10 @@ function init() {
         .attr("class", "inset")
         .attr("rx", 5)
         .attr("ry", 5)
-        .attr("x", function(r) { return r.x + "px"; })
-        .attr("y", function(r) { return r.y + "px"; })
-        .attr("width", function(r) { return r.width + "px"; })
-        .attr("height", function(r) { return r.height + "px"; });
+        .attr("x", function(r) { return r.x; })
+        .attr("y", function(r) { return r.y; })
+        .attr("width", function(r) { return r.width; })
+        .attr("height", function(r) { return r.height; });
 
   // our states layer
   var shapesLayer = svg.append("g")
@@ -467,8 +474,12 @@ function init() {
   // a single tooltip?
   var tooltip = root.append("div")
     .attr("id", "tooltip");
-  tooltip.append("span")
+  var ttext = tooltip.append("span")
     .attr("class", "text");
+  var titletext = ttext.append("span")
+    .attr("class", "title");
+  var subtext = ttext.append("span")
+    .attr("class", "subtitle");
 
   function flashState(id) {
     return d3.select("#shape-" + id)
@@ -509,7 +520,7 @@ function init() {
       .transition()
         .delay(200)
         .duration(100)
-        .attr("transform", "scale(1,1)")
+        .attr("transform", "scale(1.2,1.2)")
 
     if (zip.rainy) {
       makeItRain(g, randn(50, 100), randn(50, 75));
@@ -591,9 +602,11 @@ function init() {
       .style("left", pos[0] + "px")
       .style("top", pos[1] + "px");
 
-    var text = tooltip.select(".text")
-        .style("position", "absolute")
-        .html("<b>" + title + "</b><br>" + subtitle);
+    var text = ttext
+      .style("position", "absolute");
+
+    titletext.text(title);
+    subtext.text(subtitle);
 
     var dx = Math.round(pos[0] - center[0]),
         dy = Math.round(pos[1] - center[1]),
