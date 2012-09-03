@@ -7,7 +7,6 @@ var params = (function(str) {
     var query = {},
         parts = str.split("&"),
         len = parts.length;
-    console.log("parts:", parts);
     for (var i = 0; i < len; i++) {
       var part = parts[i].split("="),
           key = part[0],
@@ -21,7 +20,7 @@ var params = (function(str) {
   }
 })(location.search);
 
-console.log("params:", JSON.stringify(params));
+// console.log("params:", JSON.stringify(params));
 
 var LIVE = params.live !== 0,
     commitURI = params.uri || (LIVE ? "commit2vote.csv" : "commit.csv"),
@@ -153,6 +152,9 @@ var map = new gm.Map(document.getElementById("map"), options),
     zipsByCode = {},
     pledges = [];
 
+var stuff = d3.select("#map, #overlay")
+  .style("opacity", 0);
+
 // apparently it's better to get the projection from an overlay than the map
 var overlay = new gm.OverlayView();
 overlay.draw = function() {};
@@ -230,7 +232,7 @@ d3.csv(urls.zips, function(rows) {
     d3.csv(urls.pledges, function(rows) {
 
       pledges = rows;
-      console.log("pledges:", pledges);
+      console.log("loaded", pledges.length, "pledges");
 
       exports.data = {
         states: states,
@@ -282,6 +284,8 @@ function waitForProjection(then) {
  * initialize the visualization
  */
 function init() {
+
+  stuff.call(fadeIn);
 
   // get the overlay div as a d3 selection,
   // and get its screen dimensions
@@ -362,7 +366,10 @@ function init() {
 
   // our states layer
   var shapesLayer = svg.append("g")
-    .attr("class", "shapes");
+    .attr("class", "shapes")
+    .attr("opacity", 0);
+
+  shapesLayer.call(fadeIn);
 
   time.reset();
 
@@ -399,15 +406,15 @@ function init() {
   time.mark("states.render");
 
   zips.forEach(function(z) {
-      var pos = project([z.lon, z.lat]),
-          state = statesByCode[z.state];
-      if (state && state.offset) {
-          pos[0] = pos[0] * state.offset.scale + state.offset.translate[0];
-          pos[1] = pos[1] * state.offset.scale + state.offset.translate[1];
-      }
-      z.pos = pos;
-      z.y = pos[1];
-      z.pledges = 0;
+    var pos = project([z.lon, z.lat]),
+        state = statesByCode[z.state];
+    if (state && state.offset) {
+        pos[0] = pos[0] * state.offset.scale + state.offset.translate[0];
+        pos[1] = pos[1] * state.offset.scale + state.offset.translate[1];
+    }
+    z.pos = pos;
+    z.y = pos[1];
+    z.pledges = 0;
   });
 
   zips.sort(function(a, b) {
@@ -415,9 +422,14 @@ function init() {
   });
 
   time.mark("zips.project");
+  console.log("projected zips in %s", time.get("zips.project"));
 
   var zipsByState = d3.nest()
     .key(function(z) { return z.state; })
+    .map(zips);
+
+  var zipsByPrefix = d3.nest()
+    .key(function(z) { return z.zip.substr(0, 4); })
     .map(zips);
 
   var pointsLayer = svg.append("g")
@@ -436,24 +448,34 @@ function init() {
     });
 
   time.mark("zips.draw");
+  console.log("drew zips in %s", time.get("zips.draw"));
 
   var confetti = params.confetti != "0";
 
   // clicking a square "pops" it
   stateShapes.on("click", function(state) {
-    console.log("click:", d3.event, state);
     var e = d3.event,
         pos = d3.mouse(root.node()),
-        zips = zipsByState[state.id];
-    zips.forEach(function(z, i) {
+        stateZips = zipsByState[state.id];
+    console.log("click:", pos.join(","), state.id);
+    var closest = getClosestZip(pos, stateZips);
+    if (closest) {
+      closest.rainy = true;
+      popZip(closest, "Shawn A.");
+    } else {
+      console.warn("couldn't find closest zip among:", stateZips);
+    }
+  });
+
+  function getClosestZip(pos, listOfZips) {
+    listOfZips.forEach(function(z, i) {
       z.pdist = distance(pos, z.pos);
     });
-    zips.sort(function(a, b) {
+    listOfZips.sort(function(a, b) {
       return a.pdist - b.pdist;
     });
-    var closest = zips[0];
-    popZip(closest, "Mouse Click");
-  });
+    return listOfZips[0];
+  }
 
   // a single tooltip?
   var tooltip = root.append("div")
@@ -496,21 +518,50 @@ function init() {
     ic.transition()
       .duration(200)
       .ease("in")
-      .attr("transform", "scale(1.2,1.2)")
+      .attr("transform", "scale(1.5,1.5)")
       .transition()
         .delay(200)
         .duration(100)
         .attr("transform", "scale(1,1)")
 
-    makeItRain(g, randn(50, 100), randn(50, 75));
+    if (zip.rainy) {
+      makeItRain(g, randn(50, 100), randn(50, 75));
+    }
+  }
+
+  function getZipByCode(code) {
+    var zip5 = code.substr(0, 5);
+    if (code in zipsByCode) {
+      return zipsByCode[code];
+    } else if (zip5 in zipsByCode) {
+      console.log("long zip truncated:", code, "->", zip5);
+      return zipsByCode[zip5];
+    } else {
+      var prefix = code.substr(0, 4);
+      if (prefix in zipsByPrefix) {
+        var first = zipsByPrefix[prefix][0],
+            fake = {
+              zip: code,
+              lat: first.lat,
+              lon: first.lon,
+              pos: first.pos,
+              state: first.state
+            };
+        console.warn("fake zip:", code, fake);
+        zipsByCode[code] = fake;
+        return fake;
+      }
+      console.warn("no such zip:", code);
+      return null;
+    }
   }
 
   // pop a zip by zip code ("94117")
   function popZipCode(code, title, subtitle) {
-    if (code in zipsByCode) {
-      return popZip(zipsByCode[code], title, subtitle);
+    var zip = getZipByCode(code);
+    if (zip) {
+      return popZip(zip, title, subtitle);
     } else {
-      console.warn("no such zip code:", code);
       return false;
     }
   }
@@ -527,13 +578,25 @@ function init() {
     if (zip.city) {
       subtitle = subtitle || [zip.city, zip.state].join(", ");
     } else {
-      subtitle = subtitle || state.properties.name;
+      if (state) {
+        subtitle = subtitle || state.properties.name;
+      } else {
+        subtitle = subtitle || state;
+      }
     }
 
-    flashState(state.id);
+    if (state) {
+      flashState(state.id);
+    } else {
+      console.log("no such state:", zip.state);
+    }
     showTooltip(pos, title, subtitle);
 
-    return d3.select("#zip-" + zip.zip).each(pop);
+    return getZipGroup(zip).each(pop);
+  }
+
+  function getZipGroup(zip) {
+    return d3.select("#zip-" + zip.zip);
   }
 
   function showTooltip(pos, title, subtitle) {
@@ -555,6 +618,7 @@ function init() {
       });
   }
 
+  var hasShownUniques = false;
   function startPledging() {
     var msPerLoad = secondsPerLoad * 1000,
         msPerPledge = (pledges.length > 1)
@@ -563,22 +627,59 @@ function init() {
         list = pledges.slice(),
         timeout;
 
-    list.sort(function(a, b) {
-        return -1 + Math.random() * 2;
-        // return d3.ascending(a.name, b.name);
+    /*
+    list.forEach(function(pledge) {
+      pledge.zip = pledge.zip.substr(0, 5);
     });
+    */
+
+    var delay = 500;
+    if (!hasShownUniques) {
+      var uniqueZips = d3.nest()
+        .key(function(pledge) { return pledge.zip; })
+        .rollup(function(a) { return a[0]; })
+        .entries(pledges)
+        .map(function(entry) { return entry.values; })
+        .sort(function(a, b) {
+            return -1 + Math.random() * 2;
+        });
+
+      // console.log(uniqueZips.length, "unique zip code pledges...", uniqueZips[0]);
+
+      uniqueZips.forEach(function(pledge) {
+        // console.log("pledge:", pledge.zip);
+        var zip = getZipByCode(pledge.zip);
+        if (zip) {
+          var g = getZipGroup(zip);
+          delay += 20;
+          setTimeout(function() {
+            g.each(pop);
+            flashState(zip.state);
+          }, delay);
+        }
+      });
+
+      hasShownUniques = true;
+      delay += 500;
+    }
 
     function nextPledge() {
       if (list.length) {
         var pledge = list.shift(),
-            zip = pledge.zip.substr(0, 5);
-        popZipCode(zip, pledge.name, pledge.city);
+            code = pledge.zip.substr(0, 5),
+            zip = zipsByCode[code];
+        if (zip) {
+          zip.rainy = true;
+          popZip(zip, pledge.name, pledge.city);
+        } else {
+          popZipCode(code, pledge.name, pledge.city);
+        }
 
         var t = msPerPledge * .5 + Math.random() * msPerPledge;
         timeout = setTimeout(nextPledge, t);
       } else {
         var url = urls.pledges;
-        url += (url.indexOf("?") > -1 ? "?" : "&") + "?ime=" + Date.now();
+        url += (url.indexOf("?") > -1 ? "?" : "&") + "?time=" + Date.now();
         d3.csv(url, function(rows) {
           pleges = data.pledges = rows;
           startPledging();
@@ -586,7 +687,8 @@ function init() {
       }
     }
 
-    nextPledge();
+    setTimeout(nextPledge, delay);
+    // nextPledge();
   }
 
   startPledging();
@@ -691,6 +793,13 @@ function makeItRain(container, numChads, maxR) {
         .each("end", function() {
           this.parentNode.removeChild(this);
         });
+}
+
+function fadeIn() {
+  this.transition()
+    .delay(1000)
+    .duration(2000)
+    .style("opacity", 1);
 }
 
 // export some stuff
