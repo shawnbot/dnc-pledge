@@ -45,6 +45,8 @@ var colors = {
   color = d3.scale.ordinal()
     .range([colors.red, colors.darkBlue, colors.white, colors.lightBlue]);
 
+var tooltipExpiry = 5000;
+
 var icons = {
   "pin1": {
     "url": "http://www.google.com/intl/en_us/mapfiles/ms/icons/yellow-dot.png",
@@ -597,7 +599,7 @@ function init() {
     return d3.select("#zip-" + zip.zip);
   }
 
-  function showTooltip(pos, title, subtitle) {
+  function showTooltip(pos, title, subtitle, fadeDelay) {
     tooltip
       .style("left", pos[0] + "px")
       .style("top", pos[1] + "px");
@@ -615,13 +617,16 @@ function init() {
         margin = 40;
     // if (angle < 0) angle += 180;
 
+    var arrow = "";
     if (Math.abs(dx) > Math.abs(dy)) { // horizontal
       if (dx > 0) {
+        arrow = "right";
         text.style("bottom", "auto")
           .style("right", margin + "px")
           .style("left", "auto")
           .style("top", -th / 2 + "px");
       } else {
+        arrow = "left";
         text.style("bottom", "auto")
           .style("right", "auto")
           .style("left", margin + "px")
@@ -629,11 +634,13 @@ function init() {
       }
     } else { // vertical
       if (dy > 0) {
+        arrow = "bottom";
         text.style("bottom", (margin + 40) + "px")
           .style("right", "auto")
           .style("left", -tw / 2 + "px")
           .style("top", "auto");
       } else { // top
+        arrow = "top";
         text.style("bottom", "auto")
           .style("right", "auto")
           .style("left", -tw / 2 + "px")
@@ -641,16 +648,19 @@ function init() {
       }
     }
 
-    tooltip.transition()
-      .duration(250)
+    ["top", "left", "bottom", "right"].forEach(function(dir) {
+      ttext.classed("arrow-" + dir, (dir === arrow));
+    });
+
+    var ind = 200;
+    return tooltip.transition()
+      .duration(ind)
       // transitioning to 1 causes rendering flickers
       .style("opacity", .999) 
-      .each("end", function() {
-        d3.select(this).transition()
-          .delay(500)
-          .duration(500)
-          .style("opacity", 0);
-      });
+      .transition()
+        .delay(ind + tooltipExpiry)
+        .duration(500)
+        .style("opacity", 0);
   }
 
   var hasShownUniques = false;
@@ -661,12 +671,13 @@ function init() {
           : msPerLoad / 2,
         list = pledges.slice(),
         timeout;
+    if (params.spp) {
+      msPerPledge = 1000 * params.spp;
+    } else if (params.mspp) {
+      msPerPledge = params.mspp;
+    }
 
-    /*
-    list.forEach(function(pledge) {
-      pledge.zip = pledge.zip.substr(0, 5);
-    });
-    */
+    tooltipExpiry = Math.max(100, msPerPledge - 600);
 
     var delay = 500;
     if (!hasShownUniques) {
@@ -686,7 +697,7 @@ function init() {
         var zip = getZipByCode(pledge.zip);
         if (zip) {
           var g = getZipGroup(zip);
-          delay += 20;
+          delay += 15;
           setTimeout(function() {
             g.each(pop);
             flashState(zip.state);
@@ -710,8 +721,7 @@ function init() {
           popZipCode(code, pledge.name, pledge.city);
         }
 
-        var t = randn(msPerPledge * .6, msPerPledge);
-        timeout = setTimeout(nextPledge, t);
+        timeout = setTimeout(nextPledge, msPerPledge);
       } else {
         var url = urls.pledges;
         url += (url.indexOf("?") > -1 ? "?" : "&") + "?time=" + Date.now();
