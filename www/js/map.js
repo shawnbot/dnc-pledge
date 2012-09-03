@@ -812,7 +812,7 @@ function makeItRain(container, numChads, maxR) {
         };
       })
       .attrTween("cy", function(d, i, y) {
-        var h = 20 + maxR * Math.max(0, (1 - d.dist / maxR)) / 1.5,
+        var h = 30 + 30 * Math.max(0, (1 - d.dist / maxR)),
             lerp = d3.interpolate(y, d.y);
         return function(t) {
           var dy = h * ty(t);
