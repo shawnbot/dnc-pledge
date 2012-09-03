@@ -291,7 +291,8 @@ function init() {
   // and get its screen dimensions
   var root = d3.select("#overlay"),
       width = root.property("offsetWidth"),
-      height = root.property("offsetHeight");
+      height = root.property("offsetHeight"),
+      center = [width / 2, height / 2];
   // console.log("size:", [width, height]);
 
   var controls = root.append("form")
@@ -491,7 +492,7 @@ function init() {
         .attr("fill", colors.stateOn)
         .transition()
           .delay(300)
-          .duration(1000)
+          .duration(2000)
           .ease("out")
           .attr("fill", colors.stateOff);
   }
@@ -540,16 +541,16 @@ function init() {
       var prefix = code.substr(0, 4);
       if (prefix in zipsByPrefix) {
         var first = zipsByPrefix[prefix][0],
-            fake = {
+            approx = {
               zip: code,
               lat: first.lat,
               lon: first.lon,
               pos: first.pos,
               state: first.state
             };
-        console.warn("fake zip:", code, fake);
-        zipsByCode[code] = fake;
-        return fake;
+        console.warn("approximated zip:", code, approx);
+        zipsByCode[code] = approx;
+        return approx;
       }
       console.warn("no such zip:", code);
       return null;
@@ -602,9 +603,44 @@ function init() {
   function showTooltip(pos, title, subtitle) {
     tooltip
       .style("left", pos[0] + "px")
-      .style("top", pos[1] + "px")
-      .select(".text")
+      .style("top", pos[1] + "px");
+
+    var text = tooltip.select(".text")
+        .style("position", "absolute")
         .html("<b>" + title + "</b><br>" + subtitle);
+
+    var dx = Math.round(pos[0] - center[0]),
+        dy = Math.round(pos[1] - center[1]),
+        tw = text.property("offsetWidth"),
+        th = text.property("offsetHeight");
+        margin = 40;
+    // if (angle < 0) angle += 180;
+
+    if (Math.abs(dx) > Math.abs(dy)) { // horizontal
+      if (dx > 0) {
+        text.style("bottom", "auto")
+          .style("right", margin + "px")
+          .style("left", "auto")
+          .style("top", -th / 2 + "px");
+      } else {
+        text.style("bottom", "auto")
+          .style("right", "auto")
+          .style("left", margin + "px")
+          .style("top", -th / 2 + "px");
+      }
+    } else { // vertical
+      if (dy > 0) {
+        text.style("bottom", (margin + 40) + "px")
+          .style("right", "auto")
+          .style("left", -tw / 2 + "px")
+          .style("top", "auto");
+      } else { // top
+        text.style("bottom", "auto")
+          .style("right", "auto")
+          .style("left", -tw / 2 + "px")
+          .style("top", (margin - 20) + "px");
+      }
+    }
 
     tooltip.transition()
       .duration(250)
