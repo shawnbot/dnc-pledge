@@ -24,7 +24,7 @@
       /* (1920 * .10 = 192) * 2 = 384 */
       /* 1920 - 384 = 1536 */
       #map, #overlay {
-        top: 20px;
+        top: 45px;
         margin: 0 192px;
         width: 1536px;
         height: 1000px;
@@ -40,7 +40,7 @@
       }
 
       #banner {
-        background-color: #E31D3F;
+        background: -webkit-linear-gradient(#E31D3F,#d50d1b);
         /*
         background-image: url(images/bg-header-red.png);
         background-position: bottom center;
@@ -50,10 +50,11 @@
         box-shadow: 0 4px 20px rgba(0,0,0,.4);
       }
 
-        #banner h1 {
+      #banner h1,
+      #banner h2 {
           color: #fff;
           /* font-family: "museo-slab", serif; */
-          font-size: 80px;
+          font-size: 72px;
           font-weight: 700;
           letter-spacing: .04em;
           word-spacing: .03em;
@@ -71,6 +72,17 @@
           font-size: 50%;
           position: relative;
           top: -.3em;
+        }
+
+        #banner h2 {
+          /* font-family: "museo-slab", serif; */
+          font-size: 50px;
+          font-weight: 600;
+          line-height: 1em;
+          letter-spacing: .15em;
+          padding: 0 0 10px 0;
+          margin-top: -20px;
+          opacity: .75;
         }
 
       #tooltip {
@@ -183,6 +195,7 @@
     <div id="map"></div>
     <div id="banner">
       <h1><i>&#x2605;</i> Stand with Barack Obama <i>&#x2605;</i></h1>
+      <h2>commit.barackobama.com</h2>
     </div>
     <div id="overlay"></div>
     <script type="text/javascript" src="js/map.js"></script>
