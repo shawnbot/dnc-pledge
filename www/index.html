@@ -21,9 +21,13 @@
           background: #2e4d75;
       }
 
+      /* (1920 * .10 = 192) * 2 = 384 */
+      /* 1920 - 384 = 1536 */
       #map, #overlay {
-        width: 80%;
-        margin: 0 10%;
+        top: 20px;
+        margin: 0 192px;
+        width: 1536px;
+        height: 1000px;
       }
 
       /* kill the google maps background-color */
@@ -49,14 +53,16 @@
         #banner h1 {
           color: #fff;
           /* font-family: "museo-slab", serif; */
-          font-size: 86px;
+          font-size: 80px;
           font-weight: 700;
-          letter-spacing: .08em;
+          letter-spacing: .04em;
+          word-spacing: .03em;
           line-height: 1em;
           text-align: center;
           text-transform: uppercase;
           text-shadow: 0 1px 3px rgba(0,0,0,.3);
-          padding: 20px;
+          padding: 10px;
+          padding-top: 40px;
           margin: 0;
         }
 
@@ -93,6 +99,52 @@
         #tooltip .subtitle {
           /* font-size: 50px; */
         }
+
+      /* cssarrowplease.com */
+      #tooltip .text:after {
+          border: solid transparent;
+          content: " ";
+          height: 0;
+          width: 0;
+          position: absolute;
+          pointer-events: none;
+          border-width: 20px;
+      }
+
+      #tooltip .arrow-top:after {
+          bottom: 100%;
+          border-color: rgba(0, 0, 0, 0);
+          border-bottom-color: rgba(0,0,0,.8);
+          left: 50%;
+          margin-left: -20px;
+      }
+
+      #tooltip .arrow-right:after {
+          left: 100%;
+          border-color: rgba(0, 0, 0, 0);
+          border-left-color: rgba(0,0,0,.8);
+          border-width: 20px;
+          top: 50%;
+          margin-top: -20px;
+      }
+
+      #tooltip .arrow-bottom:after {
+          top: 100%;
+          border-color: rgba(0, 0, 0, 0);
+          border-top-color: rgba(0,0,0,.8);
+          border-width: 20px;
+          left: 50%;
+          margin-left: -20px;
+      }
+
+      #tooltip .arrow-left:after {
+          right: 100%;
+          border-color: rgba(0, 0, 0, 0);
+          border-right-color: rgba(0,0,0,.8);
+          border-width: 20px;
+          top: 50%;
+          margin-top: -20px;
+      }
 
       .icon {
         pointer-events: none;

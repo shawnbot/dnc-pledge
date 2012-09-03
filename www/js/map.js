@@ -45,6 +45,8 @@ var colors = {
   color = d3.scale.ordinal()
     .range([colors.red, colors.darkBlue, colors.white, colors.lightBlue]);
 
+var tooltipExpiry = 5000;
+
 var icons = {
   "pin1": {
     "url": "http://www.google.com/intl/en_us/mapfiles/ms/icons/yellow-dot.png",
@@ -134,7 +136,7 @@ mapStyles = [
 
 // map options
 var options = {
-  "center":           new gm.LatLng(38.5, -95),
+  "center":           new gm.LatLng(39.5, -95),
   "zoom":             5,
   "mapTypeId":        gm.MapTypeId.ROADMAP,
   // no UI
@@ -283,6 +285,10 @@ function init() {
       center = [width / 2, height / 2];
   // console.log("size:", [width, height]);
 
+  // allow map tiles to bleed
+  var makeVisible = d3.selectAll("#map, #map div")
+    .style("overflow", "visible");
+
   // create a map projection function and SVG path generator
   var project = (function(x) {
       return function(x) {
@@ -303,15 +309,15 @@ function init() {
 
   // repositioning info for Alaska and Hawaii
   statesByCode.AK.offset = {
-    translate: [304, 984],
-    scale: .25
+    translate: [266, 920],
+    scale: .22
   };
   statesByCode.HI.offset = {
-    translate: [1078, -48],
+    translate: [1038, -106],
     scale: 1
   };
   statesByCode.PR.offset = {
-    translate: [0, -84],
+    translate: [0, -142],
     scale: 1
   };
 
@@ -324,21 +330,21 @@ function init() {
     {
       "state": "AK",
       "x": 2,
-      "y": 750,
-      "width": 315,
-      "height": 280
+      "y": 790,
+      "width": 280,
+      "height": 250
     },
     {
       "state": "HI",
-      "x": 352,
-      "y": 900,
+      "x": 312,
+      "y": 910,
       "width": 150,
       "height": 130
     },
     {
       "state": "PR",
       "x": 1374,
-      "y": 940,
+      "y": 950,
       "width": 90,
       "height": 90
     }
@@ -354,7 +360,7 @@ function init() {
         .attr("rx", 5)
         .attr("ry", 5)
         .attr("x", function(r) { return r.x; })
-        .attr("y", function(r) { return r.y; })
+        .attr("y", function(r) { return r.y - 80; })
         .attr("width", function(r) { return r.width; })
         .attr("height", function(r) { return r.height; });
 
@@ -494,26 +500,23 @@ function init() {
           .attr("fill", colors.stateOff);
   }
 
-  // "pop" a zip <g>
-  function pop(zip) {
-    zip.pledges++;
-
+  var ico = icons.dnc;
+  function popIcon(zip) {
     var g = d3.select(this),
-        icon = icons.dnc,
-        ic = g.selectAll(".icon")
+        icon = g.selectAll(".icon")
           .data([zip]);
 
-    ic.enter().append("g")
+    icon.enter().append("g")
       .attr("class", "icon confetti")
       .attr("transform", "scale(0,0)")
       .append("image")
-        .attr("xlink:href", icon.url)
-        .attr("width", icon.width)
-        .attr("height", icon.height)
-        .attr("x", icon.offset[0])
-        .attr("y", icon.offset[1]);
+        .attr("xlink:href", ico.url)
+        .attr("width", ico.width)
+        .attr("height", ico.height)
+        .attr("x", ico.offset[0])
+        .attr("y", ico.offset[1]);
 
-    ic.transition()
+    icon.transition()
       .duration(200)
       .ease("in")
       .attr("transform", "scale(1.5,1.5)")
@@ -521,6 +524,14 @@ function init() {
         .delay(200)
         .duration(100)
         .attr("transform", "scale(1,1)")
+  }
+
+  // "pop" a zip <g>
+  function pop(zip) {
+    zip.pledges++;
+
+    var g = d3.select(this);
+    popIcon.call(this, zip);
 
     if (zip.rainy) {
       makeItRain(g, randn(50, 100), randn(50, 75));
@@ -597,7 +608,7 @@ function init() {
     return d3.select("#zip-" + zip.zip);
   }
 
-  function showTooltip(pos, title, subtitle) {
+  function showTooltip(pos, title, subtitle, fadeDelay) {
     tooltip
       .style("left", pos[0] + "px")
       .style("top", pos[1] + "px");
@@ -615,13 +626,16 @@ function init() {
         margin = 40;
     // if (angle < 0) angle += 180;
 
+    var arrow = "";
     if (Math.abs(dx) > Math.abs(dy)) { // horizontal
       if (dx > 0) {
+        arrow = "right";
         text.style("bottom", "auto")
           .style("right", margin + "px")
           .style("left", "auto")
           .style("top", -th / 2 + "px");
       } else {
+        arrow = "left";
         text.style("bottom", "auto")
           .style("right", "auto")
           .style("left", margin + "px")
@@ -629,31 +643,37 @@ function init() {
       }
     } else { // vertical
       if (dy > 0) {
+        arrow = "bottom";
         text.style("bottom", (margin + 40) + "px")
           .style("right", "auto")
           .style("left", -tw / 2 + "px")
           .style("top", "auto");
       } else { // top
+        arrow = "top";
         text.style("bottom", "auto")
           .style("right", "auto")
           .style("left", -tw / 2 + "px")
-          .style("top", (margin - 20) + "px");
+          .style("top", (margin - 10) + "px");
       }
     }
 
-    tooltip.transition()
-      .duration(250)
+    ["top", "left", "bottom", "right"].forEach(function(dir) {
+      ttext.classed("arrow-" + dir, (dir === arrow));
+    });
+
+    var ind = 200;
+    return tooltip.transition()
+      .duration(ind)
       // transitioning to 1 causes rendering flickers
       .style("opacity", .999) 
-      .each("end", function() {
-        d3.select(this).transition()
-          .delay(500)
-          .duration(500)
-          .style("opacity", 0);
-      });
+      .transition()
+        .delay(ind + tooltipExpiry)
+        .duration(500)
+        .style("opacity", 0);
   }
 
-  var hasShownUniques = false;
+  var hasShownUniques = false,
+      iconPopTimeout;
   function startPledging() {
     var msPerLoad = secondsPerLoad * 1000,
         msPerPledge = (pledges.length > 1)
@@ -661,12 +681,13 @@ function init() {
           : msPerLoad / 2,
         list = pledges.slice(),
         timeout;
+    if (params.spp) {
+      msPerPledge = 1000 * params.spp;
+    } else if (params.mspp) {
+      msPerPledge = params.mspp;
+    }
 
-    /*
-    list.forEach(function(pledge) {
-      pledge.zip = pledge.zip.substr(0, 5);
-    });
-    */
+    tooltipExpiry = Math.max(100, msPerPledge - 600);
 
     var delay = 500;
     if (!hasShownUniques) {
@@ -686,10 +707,10 @@ function init() {
         var zip = getZipByCode(pledge.zip);
         if (zip) {
           var g = getZipGroup(zip);
-          delay += 20;
+          delay += 2;
           setTimeout(function() {
             g.each(pop);
-            flashState(zip.state);
+            // flashState(zip.state);
           }, delay);
         }
       });
@@ -697,6 +718,22 @@ function init() {
       hasShownUniques = true;
       delay += 500;
     }
+
+    var msPerIcon = 200;
+    function popNextIcon() {
+      var pledge = rand(pledges),
+          zip = getZipByCode(pledge.zip);
+      if (zip) {
+        var wasRainy = zip.rainy;
+        zip.rainy = false;
+        d3.select("#zip-" + zip.zip).each(pop);
+        zip.rainy = wasRainy;
+      }
+
+      setTimeout(popNextIcon, randn(msPerIcon / 2, msPerIcon));
+    }
+
+    setTimeout(popNextIcon, msPerIcon);
 
     function nextPledge() {
       if (list.length) {
@@ -710,8 +747,7 @@ function init() {
           popZipCode(code, pledge.name, pledge.city);
         }
 
-        var t = randn(msPerPledge * .6, msPerPledge);
-        timeout = setTimeout(nextPledge, t);
+        timeout = setTimeout(nextPledge, msPerPledge);
       } else {
         var url = urls.pledges;
         url += (url.indexOf("?") > -1 ? "?" : "&") + "?time=" + Date.now();
@@ -774,10 +810,10 @@ function makeItRain(container, numChads, maxR) {
   });
 
   var tx = d3.scale.linear()
-    .domain([0, .5, .75, 1])
+    .domain([0, .3, .75, 1])
     .range([0, .75, 1, 1]);
   var ty = d3.scale.linear()
-    .domain([0, .5, 1])
+    .domain([0, .25, 1])
     .range([0, -1, 0]);
 
   var klass = "k" + Date.now();
@@ -802,7 +838,7 @@ function makeItRain(container, numChads, maxR) {
         return d.delay = Math.random() * 200;
       })
       .duration(function(d, i) {
-        return d.duration = 300 + Math.random() * 500;
+        return d.duration = 400 + Math.random() * 400;
       })
       .attrTween("cx", function(d, i, x) {
         var lerp = d3.interpolate(x, d.x);
@@ -811,7 +847,7 @@ function makeItRain(container, numChads, maxR) {
         };
       })
       .attrTween("cy", function(d, i, y) {
-        var h = 30 + 30 * Math.max(0, (1 - d.dist / maxR)),
+        var h = 60 + 50 * Math.max(0, (1 - d.dist / maxR)),
             lerp = d3.interpolate(y, d.y);
         return function(t) {
           var dy = h * ty(t);
