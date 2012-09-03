@@ -136,7 +136,7 @@ mapStyles = [
 
 // map options
 var options = {
-  "center":           new gm.LatLng(38.5, -95),
+  "center":           new gm.LatLng(39.5, -95),
   "zoom":             5,
   "mapTypeId":        gm.MapTypeId.ROADMAP,
   // no UI
@@ -305,15 +305,15 @@ function init() {
 
   // repositioning info for Alaska and Hawaii
   statesByCode.AK.offset = {
-    translate: [304, 984],
-    scale: .25
+    translate: [266, 920],
+    scale: .22
   };
   statesByCode.HI.offset = {
-    translate: [1078, -48],
+    translate: [1038, -106],
     scale: 1
   };
   statesByCode.PR.offset = {
-    translate: [0, -84],
+    translate: [0, -142],
     scale: 1
   };
 
@@ -326,21 +326,21 @@ function init() {
     {
       "state": "AK",
       "x": 2,
-      "y": 750,
-      "width": 315,
-      "height": 280
+      "y": 790,
+      "width": 280,
+      "height": 250
     },
     {
       "state": "HI",
-      "x": 352,
-      "y": 900,
+      "x": 312,
+      "y": 910,
       "width": 150,
       "height": 130
     },
     {
       "state": "PR",
       "x": 1374,
-      "y": 940,
+      "y": 950,
       "width": 90,
       "height": 90
     }
@@ -356,7 +356,7 @@ function init() {
         .attr("rx", 5)
         .attr("ry", 5)
         .attr("x", function(r) { return r.x; })
-        .attr("y", function(r) { return r.y; })
+        .attr("y", function(r) { return r.y - 80; })
         .attr("width", function(r) { return r.width; })
         .attr("height", function(r) { return r.height; });
 
@@ -649,7 +649,7 @@ function init() {
         text.style("bottom", "auto")
           .style("right", "auto")
           .style("left", -tw / 2 + "px")
-          .style("top", (margin - 20) + "px");
+          .style("top", (margin - 10) + "px");
       }
     }
 

@@ -21,9 +21,13 @@
           background: #2e4d75;
       }
 
+      /* (1920 * .10 = 192) * 2 = 384 */
+      /* 1920 - 384 = 1536 */
       #map, #overlay {
-        width: 80%;
-        margin: 0 10%;
+        top: 20px;
+        margin: 0 192px;
+        width: 1536px;
+        height: 1000px;
       }
 
       /* kill the google maps background-color */
@@ -49,14 +53,16 @@
         #banner h1 {
           color: #fff;
           /* font-family: "museo-slab", serif; */
-          font-size: 86px;
+          font-size: 80px;
           font-weight: 700;
-          letter-spacing: .08em;
+          letter-spacing: .04em;
+          word-spacing: .03em;
           line-height: 1em;
           text-align: center;
           text-transform: uppercase;
           text-shadow: 0 1px 3px rgba(0,0,0,.3);
-          padding: 20px;
+          padding: 10px;
+          padding-top: 40px;
           margin: 0;
         }
 
