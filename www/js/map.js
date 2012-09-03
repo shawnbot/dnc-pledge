@@ -38,7 +38,7 @@ var colors = {
     "white":      "#ffffff",
     "darkBlue":   "#00446a",
     "lightBlue":  "#09BCEF",
-    "stateOff":   "#dde2e9",
+    "stateOff":   "#cfd4d9",
     "stateOn":    "#08aaf9",
     "gold":       "#c8aa43"
   },
@@ -112,7 +112,7 @@ var hide = {"visibility": "off"},
 mapStyles = [
   {
     "stylers": [
-      { "color": "#426188" }
+      { "color": "#052642" }
     ]
   },{
     "stylers": [
@@ -129,7 +129,7 @@ mapStyles = [
     "elementType": "geometry",
     "stylers": [
       { "visibility": "on" },
-      { "color": "#2e4d75" }
+      { "color": "#03162c" }
     ]
   }
 ];
