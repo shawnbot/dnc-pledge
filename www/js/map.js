@@ -496,26 +496,23 @@ function init() {
           .attr("fill", colors.stateOff);
   }
 
-  // "pop" a zip <g>
-  function pop(zip) {
-    zip.pledges++;
-
+  var ico = icons.dnc;
+  function popIcon(zip) {
     var g = d3.select(this),
-        icon = icons.dnc,
-        ic = g.selectAll(".icon")
+        icon = g.selectAll(".icon")
           .data([zip]);
 
-    ic.enter().append("g")
+    icon.enter().append("g")
       .attr("class", "icon confetti")
       .attr("transform", "scale(0,0)")
       .append("image")
-        .attr("xlink:href", icon.url)
-        .attr("width", icon.width)
-        .attr("height", icon.height)
-        .attr("x", icon.offset[0])
-        .attr("y", icon.offset[1]);
+        .attr("xlink:href", ico.url)
+        .attr("width", ico.width)
+        .attr("height", ico.height)
+        .attr("x", ico.offset[0])
+        .attr("y", ico.offset[1]);
 
-    ic.transition()
+    icon.transition()
       .duration(200)
       .ease("in")
       .attr("transform", "scale(1.5,1.5)")
@@ -523,6 +520,14 @@ function init() {
         .delay(200)
         .duration(100)
         .attr("transform", "scale(1,1)")
+  }
+
+  // "pop" a zip <g>
+  function pop(zip) {
+    zip.pledges++;
+
+    var g = d3.select(this);
+    popIcon.call(this, zip);
 
     if (zip.rainy) {
       makeItRain(g, randn(50, 100), randn(50, 75));
@@ -663,7 +668,8 @@ function init() {
         .style("opacity", 0);
   }
 
-  var hasShownUniques = false;
+  var hasShownUniques = false,
+      iconPopTimeout;
   function startPledging() {
     var msPerLoad = secondsPerLoad * 1000,
         msPerPledge = (pledges.length > 1)
@@ -697,10 +703,10 @@ function init() {
         var zip = getZipByCode(pledge.zip);
         if (zip) {
           var g = getZipGroup(zip);
-          delay += 15;
+          delay += 2;
           setTimeout(function() {
             g.each(pop);
-            flashState(zip.state);
+            // flashState(zip.state);
           }, delay);
         }
       });
@@ -708,6 +714,22 @@ function init() {
       hasShownUniques = true;
       delay += 500;
     }
+
+    var msPerIcon = 200;
+    function popNextIcon() {
+      var pledge = rand(pledges),
+          zip = getZipByCode(pledge.zip);
+      if (zip) {
+        var wasRainy = zip.rainy;
+        zip.rainy = false;
+        d3.select("#zip-" + zip.zip).each(pop);
+        zip.rainy = wasRainy;
+      }
+
+      setTimeout(popNextIcon, randn(msPerIcon / 2, msPerIcon));
+    }
+
+    setTimeout(popNextIcon, msPerIcon);
 
     function nextPledge() {
       if (list.length) {
@@ -784,10 +806,10 @@ function makeItRain(container, numChads, maxR) {
   });
 
   var tx = d3.scale.linear()
-    .domain([0, .5, .75, 1])
+    .domain([0, .3, .75, 1])
     .range([0, .75, 1, 1]);
   var ty = d3.scale.linear()
-    .domain([0, .5, 1])
+    .domain([0, .25, 1])
     .range([0, -1, 0]);
 
   var klass = "k" + Date.now();
@@ -812,7 +834,7 @@ function makeItRain(container, numChads, maxR) {
         return d.delay = Math.random() * 200;
       })
       .duration(function(d, i) {
-        return d.duration = 300 + Math.random() * 500;
+        return d.duration = 400 + Math.random() * 400;
       })
       .attrTween("cx", function(d, i, x) {
         var lerp = d3.interpolate(x, d.x);
@@ -821,7 +843,7 @@ function makeItRain(container, numChads, maxR) {
         };
       })
       .attrTween("cy", function(d, i, y) {
-        var h = 30 + 30 * Math.max(0, (1 - d.dist / maxR)),
+        var h = 60 + 50 * Math.max(0, (1 - d.dist / maxR)),
             lerp = d3.interpolate(y, d.y);
         return function(t) {
           var dy = h * ty(t);
