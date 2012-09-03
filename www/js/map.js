@@ -22,7 +22,7 @@ var params = (function(str) {
 
 // console.log("params:", JSON.stringify(params));
 
-var LIVE = params.live !== 0,
+var LIVE = params.live == 1,
     commitURI = params.uri || (LIVE ? "commit2vote.csv" : "commit.csv"),
     secondsPerLoad = LIVE ? 60 : 600;
 // console.log("commit URI:", commitURI);
@@ -521,20 +521,20 @@ function init() {
       .ease("in")
       .attr("transform", "scale(1.5,1.5)")
       .transition()
-        .delay(200)
+        .delay(205)
         .duration(100)
         .attr("transform", "scale(1,1)")
   }
 
   // "pop" a zip <g>
   function pop(zip) {
-    zip.pledges++;
-
     var g = d3.select(this);
     popIcon.call(this, zip);
 
     if (zip.rainy) {
-      makeItRain(g, randn(50, 100), randn(50, 75));
+      var numChads = randn(80, 100),
+          maxR = randn(80, 160);
+      makeItRain(g, numChads, maxR);
     }
   }
 
@@ -673,18 +673,34 @@ function init() {
   }
 
   var hasShownUniques = false,
-      iconPopTimeout;
+      iconPopTimeout,
+      nextPledgeTimeout,
+      nextPledge = function() {
+        console.warn("nextPledge() called with no pledges");
+      },
+      popNextIcon = function() {
+        console.warn("popNextIcon() called with no pledges");
+      };
+
   function startPledging() {
     var msPerLoad = secondsPerLoad * 1000,
         msPerPledge = (pledges.length > 1)
           ? msPerLoad / (pledges.length - 1)
           : msPerLoad / 2,
-        list = pledges.slice(),
-        timeout;
+        list = pledges.slice();
+
+    list.sort(function(a, b) {
+      return -1 + Math.random() * 2;
+    });
+
+    // msPerPledge is the time between showing labels for each
+    // pledge (in milliseconds)
     if (params.spp) {
       msPerPledge = 1000 * params.spp;
     } else if (params.mspp) {
       msPerPledge = params.mspp;
+    } else {
+      msPerPledge = 3500;
     }
 
     tooltipExpiry = Math.max(100, msPerPledge - 600);
@@ -694,20 +710,23 @@ function init() {
       var uniqueZips = d3.nest()
         .key(function(pledge) { return pledge.zip; })
         .rollup(function(a) { return a[0]; })
-        .entries(pledges)
+        .entries(list)
         .map(function(entry) { return entry.values; })
         .sort(function(a, b) {
-            return -1 + Math.random() * 2;
+          return -1 + Math.random() * 2;
         });
 
       // console.log(uniqueZips.length, "unique zip code pledges...", uniqueZips[0]);
 
-      uniqueZips.forEach(function(pledge) {
+      var popsPerTick = params.ppt || 2;
+      uniqueZips.forEach(function(pledge, i) {
         // console.log("pledge:", pledge.zip);
         var zip = getZipByCode(pledge.zip);
         if (zip) {
           var g = getZipGroup(zip);
-          delay += 2;
+          if (i % popsPerTick === 0) {
+            delay += 10;
+          }
           setTimeout(function() {
             g.each(pop);
             // flashState(zip.state);
@@ -720,7 +739,7 @@ function init() {
     }
 
     var msPerIcon = 200;
-    function popNextIcon() {
+    popNextIcon = function() {
       var pledge = rand(pledges),
           zip = getZipByCode(pledge.zip);
       if (zip) {
@@ -730,24 +749,25 @@ function init() {
         zip.rainy = wasRainy;
       }
 
-      setTimeout(popNextIcon, randn(msPerIcon / 2, msPerIcon));
-    }
+      iconPopTimeout = setTimeout(popNextIcon, randn(msPerIcon / 2, msPerIcon));
+    };
 
-    setTimeout(popNextIcon, msPerIcon);
+    iconPopTimeout = setTimeout(popNextIcon, msPerIcon);
 
-    function nextPledge() {
+    nextPledge = function() {
       if (list.length) {
         var pledge = list.shift(),
             code = pledge.zip.substr(0, 5),
             zip = zipsByCode[code];
         if (zip) {
+          zip.pledges++;
           zip.rainy = true;
           popZip(zip, pledge.name, pledge.city);
         } else {
           popZipCode(code, pledge.name, pledge.city);
         }
 
-        timeout = setTimeout(nextPledge, msPerPledge);
+        nextPledgeTimeout = setTimeout(nextPledge, msPerPledge);
       } else {
         var url = urls.pledges;
         url += (url.indexOf("?") > -1 ? "?" : "&") + "?time=" + Date.now();
@@ -756,11 +776,46 @@ function init() {
           startPledging();
         });
       }
-    }
+    };
 
-    setTimeout(nextPledge, delay);
-    // nextPledge();
+    nextPledgeTimeout = setTimeout(nextPledge, delay);
   }
+
+  var blurred = false;
+  window.addEventListener("blur", function() {
+      if (blurred) return;
+
+      console.log("* blurred @", Date.now());
+      blurred = true;
+
+      d3.selectAll("circle.confetti")
+        .call(stopTransitions)
+        .remove();
+
+      tooltip
+        .style("opacity", 0)
+        .call(stopTransitions);
+
+      d3.selectAll("g.icon")
+        .attr("transform", "scale(1,1)")
+        .call(stopTransitions);
+
+      stateShapes
+        .call(stopTransitions)
+        .attr("fill", colors.stateOff);
+
+      clearTimeout(iconPopTimeout);
+      clearTimeout(nextPledgeTimeout);
+  });
+
+  window.addEventListener("focus", function() {
+      if (!blurred) return;
+
+      console.log("* focused @", Date.now());
+      blurred = false;
+      nextPledge();
+      popNextIcon();
+  });
 
   startPledging();
 
@@ -790,7 +845,7 @@ function makeItRain(container, numChads, maxR) {
 
   var tr = d3.scale.linear()
     .domain([-maxY, maxY])
-    .range([1, 3]);
+    .range([1, 4]);
   var offy = d3.scale.linear()
     .domain([0, Math.PI / 2, Math.PI, Math.PI * 3/2, Math.PI * 2])
     .range([0, 1, 1, .8, 1]);
@@ -810,7 +865,7 @@ function makeItRain(container, numChads, maxR) {
   });
 
   var tx = d3.scale.linear()
-    .domain([0, .3, .75, 1])
+    .domain([0, .25, .75, 1])
     .range([0, .75, 1, 1]);
   var ty = d3.scale.linear()
     .domain([0, .25, 1])
@@ -847,7 +902,7 @@ function makeItRain(container, numChads, maxR) {
         };
       })
       .attrTween("cy", function(d, i, y) {
-        var h = 60 + 50 * Math.max(0, (1 - d.dist / maxR)),
+        var h = maxR + maxR * Math.max(0, (1 - d.dist / maxR)),
             lerp = d3.interpolate(y, d.y);
         return function(t) {
           var dy = h * ty(t);
@@ -871,6 +926,11 @@ function fadeIn() {
     .delay(1000)
     .duration(2000)
     .style("opacity", 1);
+}
+
+function stopTransitions() {
+  this.transition()
+    .duration(0);
 }
 
 // export some stuff
