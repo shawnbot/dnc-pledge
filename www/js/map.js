@@ -134,7 +134,7 @@ mapStyles = [
 
 // map options
 var options = {
-  "center":           new gm.LatLng(39, -100),
+  "center":           new gm.LatLng(40, -100),
   "zoom":             5,
   "mapTypeId":        gm.MapTypeId.ROADMAP,
   // no UI
@@ -207,15 +207,15 @@ d3.csv(urls.zips, function(rows) {
 
     // repositioning info for Alaska and Hawaii
     statesByCode.AK.offset = {
-      translate: [298, 960],
+      translate: [300, 945],
       scale: .3
     };
     statesByCode.HI.offset = {
-      translate: [840, -70],
+      translate: [840, -100],
       scale: 1
     };
     statesByCode.PR.offset = {
-      translate: [112, -95],
+      translate: [112, -126],
       scale: 1
     };
 
@@ -295,21 +295,6 @@ function init() {
       center = [width / 2, height / 2];
   // console.log("size:", [width, height]);
 
-  var controls = root.append("form")
-    .attr("id", "controls")
-    .on("submit", function() {
-        var input = zipInput.node();
-        popZipCode(input.value);
-        input.select();
-        d3.event.preventDefault();
-        return false;
-    });
-  var zipInput = controls.append("label")
-    .text("Zip: ")
-    .append("input")
-      .attr("type", "text")
-      .attr("size", 5);
-
   // create a map projection function and SVG path generator
   var project = (function(x) {
       return function(x) {
@@ -357,6 +342,7 @@ function init() {
     .attr("id", "insets")
     .selectAll("rect")
       .data(insetRects).enter().append("rect")
+        .attr("id", function(r) { return "inset-" + r.state; })
         .attr("class", "inset")
         .attr("rx", 5)
         .attr("ry", 5)
@@ -394,9 +380,8 @@ function init() {
     .attr("fill", colors.stateOff)
     .attr("transform", function(d, i) {
       if (d.offset) {
-        var centroid = path.centroid(d),
-            center = project(centroid),
-            scale = d.offset.scale || 1;
+        var scale = d.offset.scale || 1;
+        d.centroid = path.centroid(d);
         return "translate(" + d.offset.translate + ") " +
                "scale(" + [scale, scale] + ") ";
       } else {
@@ -410,8 +395,9 @@ function init() {
     var pos = project([z.lon, z.lat]),
         state = statesByCode[z.state];
     if (state && state.offset) {
-        pos[0] = pos[0] * state.offset.scale + state.offset.translate[0];
-        pos[1] = pos[1] * state.offset.scale + state.offset.translate[1];
+        var off = state.offset;
+        pos[0] = pos[0] * off.scale + off.translate[0];
+        pos[1] = pos[1] * off.scale + off.translate[1];
     }
     z.pos = pos;
     z.y = pos[1];
@@ -711,7 +697,7 @@ function init() {
           popZipCode(code, pledge.name, pledge.city);
         }
 
-        var t = msPerPledge * .5 + Math.random() * msPerPledge;
+        var t = randn(msPerPledge * .6, msPerPledge);
         timeout = setTimeout(nextPledge, t);
       } else {
         var url = urls.pledges;
