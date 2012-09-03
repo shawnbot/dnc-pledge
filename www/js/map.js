@@ -520,7 +520,7 @@ function init() {
       .transition()
         .delay(200)
         .duration(100)
-        .attr("transform", "scale(1.2,1.2)")
+        .attr("transform", "scale(1,1)")
 
     if (zip.rainy) {
       makeItRain(g, randn(50, 100), randn(50, 75));
