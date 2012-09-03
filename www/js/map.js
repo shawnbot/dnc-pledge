@@ -562,6 +562,7 @@ function init() {
         g2.cdist = distance(g.pos, g2.pos);
       });
 
+    /*
     var shape = d3.select("#shape-" + g.state.id)
       .transition()
         .duration(500)
@@ -586,15 +587,16 @@ function init() {
         duration1 = initialDelay + 400,
         secondaryDelay = 100,
         duration2 = duration1 * 1.6 + secondaryDelay;
+    */
 
     var icon = icons.dnc,
         ic = d3.select(this.parentNode)
           .selectAll(".icon")
-          .data([g.pledges]);
+          .data([{y: 0, pledges: g.pledges}]);
 
     var img = ic.enter()
       .append("g")
-        .attr("class", "icon")
+        .attr("class", "icon confetti")
         .attr("transform", "scale(0,0)")
         .append("image")
           .attr("xlink:href", icon.url)
@@ -603,16 +605,17 @@ function init() {
           .attr("x", icon.offset[0])
           .attr("y", icon.offset[1]);
 
-    var iconDuration1 = duration1 + .8,
-        iconDuration2 = duration2 / 4;
     ic.transition()
-      .duration(iconDuration1)
+      .duration(200)
       .ease("in")
-      .attr("transform", "scale(1,1)")
+      .attr("transform", "scale(1.2,1.2)")
       .transition()
-        .delay(iconDuration1 + 1)
-        .duration(iconDuration2)
-        .attr("transform", "scale(.8,.8)")
+        .delay(200)
+        .duration(100)
+        .attr("transform", "scale(1,1)")
+
+    makeItRain(d3.select(this.parentNode), 100, 70);
+    return;
 
     var startDelay = 150;
     siblings.transition()
@@ -647,9 +650,35 @@ function init() {
       var zip = zipsByCode[code];
       return popZip(zip, title, subtitle);
     } else {
-      console.warn("no such zip:", code);
+      var prefix = code.substr(0, zipPrecision);
+      for (var i = 0; i <= 9; i++) {
+        var zip = zipsByCode[prefix + i];
+        if (zip) {
+          console.info("popping nearby zip:", code, "->", prefix + i);
+          return popZip(zip, title, subtitle);
+        }
+      }
+      console.warn("no such zip code:", code);
       return false;
     }
+  }
+
+  // pop a zip by object (zipsByCode["94117"])
+  function popZip(zip, title, subtitle) {
+    // get its location, projected position and state
+    var loc = [zip.lon, zip.lat],
+        pos = zip.pos || (zip.pos = project(loc)),
+        state = statesByCode[zip.state];
+
+    // defaults
+    title = title || zip.zip;
+    if (zip.city) {
+      subtitle = subtitle || [zip.city, zip.state].join(", ");
+    } else {
+      subtitle = subtitle || state.properties.name;
+    }
+
+    return popPoint(pos, zip.state, title, subtitle);
   }
 
   function popPoint(pos, state, title, subtitle) {
@@ -686,7 +715,7 @@ function init() {
     // call pop() on this square
     square.each(pop);
     // XXX: use the actual grid square position?
-    pos = square.datum().pos;
+    // pos = square.datum().pos;
 
     tooltip
       .style("left", pos[0] + "px")
@@ -707,26 +736,8 @@ function init() {
     return true;
   }
 
-  // pop a zip by object (zipsByCode["94117"])
-  function popZip(zip, title, subtitle) {
-    // get its location, projected position and state
-    var loc = [zip.lon, zip.lat],
-        pos = zip.pos || (zip.pos = project(loc)),
-        state = statesByCode[zip.state];
-
-    // defaults
-    title = title || zip.zip;
-    if (zip.city) {
-      subtitle = subtitle || [zip.city, zip.state].join(", ");
-    } else {
-      subtitle = subtitle || state.properties.name;
-    }
-
-    return popPoint(pos, zip.state, title, subtitle);
-  }
-
   function startPledging() {
-    var msPerLoad = (TESTING ? 10 : 1) * 60000, // minutes * ms/minute
+    var msPerLoad = (TESTING ? 5 : 1) * 60000, // minutes * ms/minute
         msPerPledge = (pledges.length > 1)
           ? msPerLoad / (pledges.length - 1)
           : msPerLoad / 2,
@@ -776,6 +787,88 @@ function distance(p1, p2) {
 // pick a random element from an array
 function rand(a) {
   return a[~~(Math.random() * a.length)];
+}
+
+function makeItRain(container, numChads, maxR) {
+  var maxX = maxR,
+      maxY = maxR / 3;
+
+  var tr = d3.scale.linear()
+    .domain([-maxY, maxY])
+    .range([1, 4]);
+  var offy = d3.scale.linear()
+    .domain([0, Math.PI / 2, Math.PI, Math.PI * 3/2, Math.PI * 2])
+    .range([0, 1, 1, .8, 1]);
+
+  var chads = d3.range(0, numChads).map(function(i) {
+    var r = maxR / 3 + Math.random() * maxR * 2/3,
+        theta = Math.PI * 2 * Math.random(),
+        x = Math.cos(theta) * r,
+        y = Math.sin(theta) * r / 3 * offy(theta),
+        dist = Math.sqrt(x * x + x * x + y * y + y * y);
+    return {
+      radius: tr(y) + Math.random(),
+      dist: dist,
+      x: x,
+      y: y
+    };
+  });
+
+  var tx = d3.scale.linear()
+    .domain([0, .5, .75, 1])
+    .range([0, .75, 1, 1]);
+  var ty = d3.scale.linear()
+    .domain([0, .5, 1])
+    .range([0, -1, 0]);
+
+  var klass = "k" + Date.now();
+  var bits = container.selectAll("." + klass)
+    .data(chads).enter().append("circle")
+    .attr("class", "confetti " + klass)
+    .attr("fill", function(d, i) {
+      return color(i);
+    })
+    .attr("r", 0);
+
+  // sort everything by y
+  container.selectAll(".confetti")
+    .sort(function(a, b) {
+      return a.y - b.y;
+    });
+
+  return bits
+    .transition()
+      .ease("linear")
+      .delay(function(d, i) {
+        return d.delay = Math.random() * 200;
+      })
+      .duration(function(d, i) {
+        return d.duration = 300 + Math.random() * 500;
+      })
+      .attrTween("cx", function(d, i, x) {
+        var lerp = d3.interpolate(x, d.x);
+        return function(t) {
+          return lerp(tx(t));
+        };
+      })
+      .attrTween("cy", function(d, i, y) {
+        var h = 20 + maxR * Math.max(0, (1 - d.dist / maxR)) / 1.5,
+            lerp = d3.interpolate(y, d.y);
+        return function(t) {
+          var dy = h * ty(t);
+          return lerp(t) + dy;
+        };
+      })
+      .attr("r", function(d, i) { return d.radius; })
+      .transition()
+        .delay(function(d, i) {
+          return d.delay + d.duration + 1000;
+        })
+        .duration(1000)
+        .attr("r", 0)
+        .each("end", function() {
+          this.parentNode.removeChild(this);
+        });
 }
 
 // export some stuff
