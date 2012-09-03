@@ -1,8 +1,5 @@
-* ensure that DC gets a grid square
-* fix projections on AK and HI (these always hit the top left point now)
-
-+ pre-compute cell for each zip code?
-+ render states in canvas and read pixels? (we could pre-compute this)
++ move it to EC2 and send JESS3 the live URL
++ intro animations to make it less ugly
 
 - d3 transitions expire when the window loses focus (states getting "stuck"
   when you tab away). do we care?

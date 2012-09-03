@@ -7,6 +7,7 @@ var params = (function(str) {
     var query = {},
         parts = str.split("&"),
         len = parts.length;
+    console.log("parts:", parts);
     for (var i = 0; i < len; i++) {
       var part = parts[i].split("="),
           key = part[0],
@@ -22,9 +23,10 @@ var params = (function(str) {
 
 console.log("params:", JSON.stringify(params));
 
-var TESTING = params.test === 1,
-    commitURI = params.uri || (TESTING ? "commit.csv" : "commit2vote.csv");
-console.log("commit URI:", commitURI);
+var LIVE = params.live !== 0,
+    commitURI = params.uri || (LIVE ? "commit2vote.csv" : "commit.csv"),
+    secondsPerLoad = LIVE ? 60 : 600;
+// console.log("commit URI:", commitURI);
 var urls = {
   "zips":     "data/zips/zipcodes.csv",
   "states":   "data/states/all.json",
@@ -362,51 +364,7 @@ function init() {
   var shapesLayer = svg.append("g")
     .attr("class", "shapes");
 
-  var pointsLayer = svg.append("g")
-    .attr("class", "points");
-
   time.reset();
-
-  var zipsByState = d3.nest()
-    .key(function(z) { return z.state; })
-    .map(zips);
-
-  var zipPrecision = parseInt(params.zip_precision) || 4,
-      gridSize = parseFloat(params.grid_size) || 15;
-
-  // create a grid array and compute the centroid (in screen coordinates) for
-  // each state
-  states.forEach(function(state) {
-    var stz = zipsByState[state.id];
-    if (zipPrecision > 0) {
-      state.grid = d3.nest()
-        .key(function(z) { return z.zip.substr(0, zipPrecision); })
-        .entries(stz)
-        .map(function(entry) {
-          var z = entry.values[0],
-              pos = project([z.lon, z.lat]);
-          if (state.offset) {
-            pos[0] = pos[0] * state.offset.scale + state.offset.translate[0];
-            pos[1] = pos[1] * state.offset.scale + state.offset.translate[1];
-          }
-          return {
-            state: state,
-            zip: z,
-            pos: pos
-          };
-        });
-    } else {
-      state.grid = [];
-    }
-
-    // state.grid = [];
-    state.center = path.centroid(state);
-  });
-
-  // sort states by center y
-  states.sort(function(a, b) {
-    return a.center[1] - b.center[1];
-  });
 
   // a <g> for each state
   var shapeGroups = shapesLayer.selectAll("g")
@@ -440,109 +398,61 @@ function init() {
 
   time.mark("states.render");
 
-  // create a grid of size `step` as a 2d array:
-  // grid[y][x] = <reference to state object>
-  var radius = 12;
-  if (gridSize > 0 && !zipPrecision) {
-    var step = gridSize,
-        xi = 0, yi = 0,
-        grid = [];
-    for (var y = step; y < height; y += step) {
-      var row = grid[yi] = [],
-          xi = 0;
-      for (var x = step; x < width; x += step) {
-        // hit test this point, then grab the node's data
-        var el = document.elementFromPoint(x, y),
-            state = el ? d3.select(el).datum() : null;
-        // grid cells can be null
-        row[xi] = state;
-        if (state) {
-          // add this grid cell to the state's grid array
-          state.grid.push({
-            state: state,
-            pos: [x, y]
-          });
-        }
-        xi++;
+  zips.forEach(function(z) {
+      var pos = project([z.lon, z.lat]),
+          state = statesByCode[z.state];
+      if (state && state.offset) {
+          pos[0] = pos[0] * state.offset.scale + state.offset.translate[0];
+          pos[1] = pos[1] * state.offset.scale + state.offset.translate[1];
       }
-      yi++;
-    }
-
-    radius = Math.round(gridSize / 1.8);
-  }
-
-  // assign "y" properties to each grid square and sort them
-  states.forEach(function(state) {
-    state.grid.forEach(function(g, i) {
-      // round grid positions
-      g.pos[0] = ~~(g.pos[0] + .5);
-      g.pos[1] = ~~(g.pos[1] + .5);
-      g.y = g.pos[1];
-    });
-    state.grid.sort(function(a, b) {
-      return a.y - b.y;
-    });
+      z.pos = pos;
+      z.y = pos[1];
+      z.pledges = 0;
   });
 
-  time.mark("grid.compute");
-  // console.log("grid:", grid);
+  zips.sort(function(a, b) {
+    return a.y - b.y;
+  });
 
-  // a <g> for each state
-  var pointGroups = pointsLayer.selectAll("g")
-    .data(states).enter().append("g")
-      .attr("id", function(d) {
-          return "points-" + d.id;
-      })
-      .classed("inset", function(state) {
-        return state.inset;
-      });
+  time.mark("zips.project");
 
-  // for each state, create a <g> to contain cells
-  var cellGroups = pointGroups.append("g")
-    .attr("class", "cells");
+  var zipsByState = d3.nest()
+    .key(function(z) { return z.state; })
+    .map(zips);
 
-  // and create a <g> for each cell within those
-  var cells = cellGroups.selectAll("g")
-    // each state gets cells for all its grid squares
-    .data(function(state) {
-      return state.grid;
-    }).enter().append("g")
-      .attr("class", "cell")
-      .attr("transform", function(d, i) {
-        return "translate(" + d.pos + ")";
-      });
+  var pointsLayer = svg.append("g")
+    .attr("class", "points");
+
+  var zipGroups = pointsLayer.selectAll(".zip")
+    .data(zips).enter().append("g")
+    .attr("id", function(z, i) {
+      return "zip-" + z.zip;
+    })
+    .attr("class", function(z, i) {
+      return "zip state-" + z.state;
+    })
+    .attr("transform", function(z, i) {
+      return "translate(" + z.pos + ")";
+    });
+
+  time.mark("zips.draw");
 
   var confetti = params.confetti != "0";
 
-  // and each cell gets a <rect> in its center
-  var squares = cells.append("circle")
-    .attr("class", "square")
-    .attr("r", radius)
-    .attr("fill", confetti
-        ? function(d, i) {
-            return color(Math.random());
-        } : colors.darkBlue)
-    .attr("fill-opacity", .9)
-    .attr("transform", "translate(0,0) scale(0,0)");
-
-  // pre-compute group and siblings for each cell
-  squares.each(function(g, i) {
-    // TODO: get pledge counts from a data file?
-    g.pledges = 0;
-    g.group = d3.select(this.parentNode.parentNode);
-    g.siblings = g.group.selectAll(".cell");
-  });
-
-  time.mark("grid.draw");
-  console.log("%d grid cells computed in %s, drawn in %s", (xi * yi), time.get("grid.compute"), time.get("grid.draw"));
-
   // clicking a square "pops" it
-  pointGroups.on("click", function(state) {
+  stateShapes.on("click", function(state) {
     console.log("click:", d3.event, state);
     var e = d3.event,
-        pos = d3.mouse(root.node());
-    var result = popPoint(pos, state.id, "Click M.", state.properties.name);
-    console.log("popPoint(", [pos, state.id], "):", result);
+        pos = d3.mouse(root.node()),
+        zips = zipsByState[state.id];
+    zips.forEach(function(z, i) {
+      z.pdist = distance(pos, z.pos);
+    });
+    zips.sort(function(a, b) {
+      return a.pdist - b.pdist;
+    });
+    var closest = zips[0];
+    popZip(closest, "Mouse Click");
   });
 
   // a single tooltip?
@@ -551,59 +461,37 @@ function init() {
   tooltip.append("span")
     .attr("class", "text");
 
-  // "pop" a cell rectangle and its siblings:
-  // 1. sort its siblings by distance from itself
-  // 2. scale them all up with a transition, then down again with another
-  function pop(g, i) {
-    time.reset();
-    // maxi is the # of the state's grid squares minus 1
-    var siblings = g.siblings
-      .each(function(g2, j) {
-        g2.cdist = distance(g.pos, g2.pos);
-      });
-
-    /*
-    var shape = d3.select("#shape-" + g.state.id)
+  function flashState(id) {
+    return d3.select("#shape-" + id)
       .transition()
-        .duration(500)
+        .duration(300)
         .ease("in")
         .attr("fill", colors.stateOn)
         .transition()
-          .delay(600)
-          .duration(30000)
+          .delay(300)
+          .duration(1000)
           .ease("out")
           .attr("fill", colors.stateOff);
+  }
 
-    var sd = siblings.data().sort(function(a, b) {
-      return a.cdist - b.cdist;
-    });
-    var maxi = sd.length - 1,
-        maxd = sd[maxi].cdist;
+  // "pop" a zip <g>
+  function pop(zip) {
+    zip.pledges++;
 
-    g.pledges++;
+    var g = d3.select(this),
+        icon = icons.dnc,
+        ic = g.selectAll(".icon")
+          .data([zip]);
 
-    var speed = 400, // pixels per second
-        initialDelay = 50,
-        duration1 = initialDelay + 400,
-        secondaryDelay = 100,
-        duration2 = duration1 * 1.6 + secondaryDelay;
-    */
-
-    var icon = icons.dnc,
-        ic = d3.select(this.parentNode)
-          .selectAll(".icon")
-          .data([{y: 0, pledges: g.pledges}]);
-
-    var img = ic.enter()
-      .append("g")
-        .attr("class", "icon confetti")
-        .attr("transform", "scale(0,0)")
-        .append("image")
-          .attr("xlink:href", icon.url)
-          .attr("width", icon.width)
-          .attr("height", icon.height)
-          .attr("x", icon.offset[0])
-          .attr("y", icon.offset[1]);
+    ic.enter().append("g")
+      .attr("class", "icon confetti")
+      .attr("transform", "scale(0,0)")
+      .append("image")
+        .attr("xlink:href", icon.url)
+        .attr("width", icon.width)
+        .attr("height", icon.height)
+        .attr("x", icon.offset[0])
+        .attr("y", icon.offset[1]);
 
     ic.transition()
       .duration(200)
@@ -614,50 +502,14 @@ function init() {
         .duration(100)
         .attr("transform", "scale(1,1)")
 
-    makeItRain(d3.select(this.parentNode), 100, 70);
-    return;
-
-    var startDelay = 150;
-    siblings.transition()
-      .delay(startDelay)
-      .duration(duration1)
-      .ease("quad-out")
-      .select(".square")
-        .delay(function(d, i) {
-          return startDelay + initialDelay + (duration1 - initialDelay) * d.cdist / maxd;
-        })
-        .attr("transform", function(d, i) {
-            var f = d.cdist / maxd,
-              offy = -5 - 10 * (1 - f),
-              scale = .1 + (.2 + Math.random() * .3) * (1 - f);
-            return [
-              "translate(" + [0, offy] + ")",
-              "scale(" + [scale, scale] + ")"
-            ].join(" ");
-        })
-        .transition()
-          .duration(duration2)
-          .delay(function(d, i) {
-            return startDelay + duration1 + secondaryDelay + (duration2 - secondaryDelay) * d.cdist / maxd;
-          })
-          .ease("in")
-          .attr("transform", "translate(0,0) scale(0,0)");
+    makeItRain(g, randn(50, 100), randn(50, 75));
   }
 
   // pop a zip by zip code ("94117")
   function popZipCode(code, title, subtitle) {
     if (code in zipsByCode) {
-      var zip = zipsByCode[code];
-      return popZip(zip, title, subtitle);
+      return popZip(zipsByCode[code], title, subtitle);
     } else {
-      var prefix = code.substr(0, zipPrecision);
-      for (var i = 0; i <= 9; i++) {
-        var zip = zipsByCode[prefix + i];
-        if (zip) {
-          console.info("popping nearby zip:", code, "->", prefix + i);
-          return popZip(zip, title, subtitle);
-        }
-      }
       console.warn("no such zip code:", code);
       return false;
     }
@@ -667,7 +519,7 @@ function init() {
   function popZip(zip, title, subtitle) {
     // get its location, projected position and state
     var loc = [zip.lon, zip.lat],
-        pos = zip.pos || (zip.pos = project(loc)),
+        pos = zip.pos,
         state = statesByCode[zip.state];
 
     // defaults
@@ -678,45 +530,13 @@ function init() {
       subtitle = subtitle || state.properties.name;
     }
 
-    return popPoint(pos, zip.state, title, subtitle);
+    flashState(state.id);
+    showTooltip(pos, title, subtitle);
+
+    return d3.select("#zip-" + zip.zip).each(pop);
   }
 
-  function popPoint(pos, state, title, subtitle) {
-    // find the corresponding grid square
-    var cells = d3.select("#points-" + state)
-      // select all of this zip's state cells
-      .selectAll(".cell")
-        // compute distance from this zip code
-        .each(function(g, i) {
-          g.zdist = distance(g.pos, pos);
-        })
-        // sort by distance ascending
-        .sort(function(a, b) {
-          return a.zdist - b.zdist;
-        });
-
-    // grab the first (closest) one
-    var square = cells.filter(function(d, i) {
-        return i === 0;
-      })
-      // and select its square
-      .select(".square");
-
-    cells.sort(function(a, b) {
-      return a.y - b.y;
-    });
-
-    // if ther is no square, tell us and bail
-    if (square.empty()) {
-      console.warn("no square for %s (%s) @", zip.zip, zip.state, pos, "state:", state);
-      return false;
-    }
-
-    // call pop() on this square
-    square.each(pop);
-    // XXX: use the actual grid square position?
-    // pos = square.datum().pos;
-
+  function showTooltip(pos, title, subtitle) {
     tooltip
       .style("left", pos[0] + "px")
       .style("top", pos[1] + "px")
@@ -725,19 +545,18 @@ function init() {
 
     tooltip.transition()
       .duration(250)
-      .style("opacity", 1)
+      // transitioning to 1 causes rendering flickers
+      .style("opacity", .999) 
       .each("end", function() {
         d3.select(this).transition()
           .delay(500)
           .duration(500)
           .style("opacity", 0);
       });
-
-    return true;
   }
 
   function startPledging() {
-    var msPerLoad = (TESTING ? 5 : 1) * 60000, // minutes * ms/minute
+    var msPerLoad = secondsPerLoad * 1000,
         msPerPledge = (pledges.length > 1)
           ? msPerLoad / (pledges.length - 1)
           : msPerLoad / 2,
@@ -789,19 +608,22 @@ function rand(a) {
   return a[~~(Math.random() * a.length)];
 }
 
+function randn(min, max) {
+  return min + ~~((max - min) * Math.random());
+}
+
 function makeItRain(container, numChads, maxR) {
-  var maxX = maxR,
-      maxY = maxR / 3;
+  var maxY = maxR / 3;
 
   var tr = d3.scale.linear()
     .domain([-maxY, maxY])
-    .range([1, 4]);
+    .range([1, 3]);
   var offy = d3.scale.linear()
     .domain([0, Math.PI / 2, Math.PI, Math.PI * 3/2, Math.PI * 2])
     .range([0, 1, 1, .8, 1]);
 
   var chads = d3.range(0, numChads).map(function(i) {
-    var r = maxR / 3 + Math.random() * maxR * 2/3,
+    var r = randn(maxR / 3, maxR),
         theta = Math.PI * 2 * Math.random(),
         x = Math.cos(theta) * r,
         y = Math.sin(theta) * r / 3 * offy(theta),

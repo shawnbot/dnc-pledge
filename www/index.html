@@ -18,12 +18,12 @@
           width: 1920px;
           height: 1080px;
           overflow: hidden;
-          background: #2e4d75 !important;
+          background: #000;
       }
 
       /* kill the google maps background-color */
       * > #map {
-        background-color: transparent !important;
+        background: #2e4d75 !important;
       }
 
       b {
@@ -63,6 +63,10 @@
         stroke-width: 1;
       }
 
+      g.icon {
+        pointer-events: none;
+      }
+
       #tooltip {
         position: absolute;
         top: -1000px;
@@ -72,10 +76,7 @@
         text-align: center;
         opacity: 0;
         pointer-events: none;
-      }
-
-      svg .icon {
-        pointer-events: none;
+        text-transform: uppercase;
       }
 
         #tooltip .text {
@@ -93,7 +94,7 @@
         }
 
         #tooltip .text {
-          color: #09BCEF;
+          /* color: #09BCEF; */
         }
         #tooltip .text b {
           color: #fff;
