@@ -31,48 +31,29 @@
       }
 
       #banner {
-        /*
-        background-color: #09BCEF;
-        background-image: url(http://static.demconvention.com/wp-content/themes/dnc/site-art/bg-header.jpg);
-        background-position: bottom center;
-        background-repeat: repeat-x;
-        */
         background-color: #E31D3F;
+        /*
         background-image: url(images/bg-header-red.png);
         background-position: bottom center;
         background-repeat: repeat-x;
-        width: 100%;
+        */
         height: auto;
         box-shadow: 0 4px 20px rgba(0,0,0,.4);
       }
 
         #banner h1 {
+          color: #fff;
           /* font-family: "museo-slab", serif; */
-          text-transform: uppercase;
+          font-size: 90px;
           font-weight: 700;
           letter-spacing: .08em;
-          font-size: 72px;
           line-height: 1em;
           text-align: center;
-          color: #fff;
+          text-transform: uppercase;
+          text-shadow: 0 1px 3px rgba(0,0,0,.3);
           padding: 20px;
           margin: 0;
         }
-
-      #insets .inset {
-        fill: #2e4d75;
-        stroke: #183d67;
-        stroke-width: 4;
-      }
-
-      .shapes path.outline {
-        stroke: #bcc6d7;
-        stroke-width: 1;
-      }
-
-      g.icon {
-        pointer-events: none;
-      }
 
       #tooltip {
         position: absolute;
@@ -83,7 +64,7 @@
       }
 
         #tooltip .text {
-          font-size: 48px;
+          font-size: 60px;
           line-height: 1em;
           color: #fff;
           display: inline-block;
@@ -104,20 +85,22 @@
           color: #fff;
         }
 
-      #controls {
-        position: absolute;
-        bottom: 30px;
-        left: 10px;
-        font-size: 50px;
-        display: none;
-      }
-
-      #controls input {
-        font-size: inherit;
-        line-height: inherit;
-      }
-
       .icon {
+        pointer-events: none;
+      }
+
+      #insets .inset {
+        fill: #2e4d75;
+        stroke: #183d67;
+        stroke-width: 4;
+      }
+
+      .shapes path.outline {
+        stroke: #bcc6d7;
+        stroke-width: 1;
+      }
+
+      g.icon {
         pointer-events: none;
       }
 
