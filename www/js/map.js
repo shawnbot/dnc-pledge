@@ -61,10 +61,10 @@ var icons = {
     "offset": [-6.5, -23]
   },
   "dnc": {
-    "url": "images/dnc-pin02.png",
-    "width": 48,
-    "height": 48,
-    "offset": [-24, -46]
+    "url": "images/dnc-pin05.png",
+    "width": 40,
+    "height": 64,
+    "offset": [-20, -62]
   }
 };
 
