@@ -22,15 +22,14 @@ var params = (function(str) {
 
 // console.log("params:", JSON.stringify(params));
 
-var LIVE = params.live == 1,
-    commitURI = params.uri || (LIVE ? "commit2vote.csv" : "commit.csv"),
-    secondsPerLoad = LIVE ? 60 : 600;
-// console.log("commit URI:", commitURI);
 var urls = {
   "zips":     "data/zips/zipcodes.csv",
-  "states":   "data/states/all.json",
-  "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/" + commitURI)
+  "states":   "data/states/all.json"
 };
+
+function getCommitURL(uri) {
+  return "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/" + uri);
+}
 
 // colors, confetti ordinal scale
 var colors = {
@@ -213,26 +212,53 @@ d3.csv(urls.zips, function(rows) {
     console.log("%d zips loaded in %s (parsed in %s)", zips.length, time.get("zips.load"), time.get("zips.parse"));
     console.log("%d states loaded in %s (parsed in %s)", states.length, time.get("states.load"), time.get("states.parse"));
 
-    // next, load the pledges
-    d3.csv(urls.pledges, function(rows) {
+    if (params.fake > 0) {
 
-      pledges = rows;
-      console.log("loaded", pledges.length, "pledges");
+      pledges = makeFakePledges(params.fake);
+      console.log("created", pledges.length, "fake pledges:", pledges);
+      doneLoading();
 
-      exports.data = {
-        states: states,
-        statesByCode: statesByCode,
-        zips: zips,
-        zipsByCode: zipsByCode,
-        pledges: pledges
-      };
+    } else {
 
-      // wait for the projection, then init
-      waitForProjection(init);
+      var pledgeURL = getCommitURL("commit2vote-10min.csv");
+      // next, load the pledges
+      d3.csv(pledgeURL, function(rows) {
 
-    });
+        pledges = rows;
+        console.log("loaded", pledges.length, "pledges");
+
+        if (pledges.length > 100) {
+          console.log("all good; proceeding");
+
+          doneLoading();
+
+        } else {
+          console.warn("falling back on 24-hour feed");
+
+          var pledgeURL = getCommitURL("commit2vote-24hour.csv");
+          d3.csv(pledgeURL, function(rows) {
+            pledges = rows;
+            doneLoading();
+          });
+        }
+      });
+    }
+
   });
 });
+
+function doneLoading() {
+  exports.data = {
+    states: states,
+    statesByCode: statesByCode,
+    zips: zips,
+    zipsByCode: zipsByCode,
+    pledges: pledges
+  };
+
+  // wait for the projection, then init
+  waitForProjection(init);
+}
 
 var proj;
 /*
@@ -683,25 +709,25 @@ function init() {
       };
 
   function startPledging() {
-    var msPerLoad = secondsPerLoad * 1000,
-        msPerPledge = (pledges.length > 1)
-          ? msPerLoad / (pledges.length - 1)
-          : msPerLoad / 2,
-        list = pledges.slice();
-
-    list.sort(function(a, b) {
-      return -1 + Math.random() * 2;
-    });
-
     // msPerPledge is the time between showing labels for each
     // pledge (in milliseconds)
+    var msPerPledge = 3500;
     if (params.spp) {
       msPerPledge = 1000 * params.spp;
     } else if (params.mspp) {
       msPerPledge = params.mspp;
     } else {
-      msPerPledge = 3500;
     }
+
+    var loadDelay = pledges.length * msPerPledge;
+    if (loadDelay < 60000) {
+      msPerPledge = 60000 / pledges.length;
+    }
+
+    var list = pledges.slice()
+      .sort(function(a, b) {
+        return -1 + Math.random() * 2;
+      });
 
     tooltipExpiry = Math.max(100, msPerPledge - 600);
 
@@ -740,6 +766,8 @@ function init() {
 
     var msPerIcon = 200;
     popNextIcon = function() {
+      if (pledges.length === 0) return;
+
       var pledge = rand(pledges),
           zip = getZipByCode(pledge.zip);
       if (zip) {
@@ -769,10 +797,13 @@ function init() {
 
         nextPledgeTimeout = setTimeout(nextPledge, msPerPledge);
       } else {
-        var url = urls.pledges;
-        url += (url.indexOf("?") > -1 ? "?" : "&") + "?time=" + Date.now();
+        var url = getCommitURL("commit2vote-1min.csv");
         d3.csv(url, function(rows) {
-          pleges = data.pledges = rows;
+          if (rows.length > 0) {
+            pleges = data.pledges = rows;
+          } else {
+            console.warn("no pledges in 1-minute feed; reusing old pledges");
+          }
           startPledging();
         });
       }
@@ -931,6 +962,28 @@ function fadeIn() {
 function stopTransitions() {
   this.transition()
     .duration(0);
+}
+
+function makeFakePledges(size) {
+  var names = [
+    "Shawn A.",
+    "Daniel R.",
+    "Andrew B.",
+    "Jesse F.",
+    "Eric R.",
+    "Eric H.",
+    "Geraldine S.",
+    "Jenny K.",
+    "Mark M."
+  ];
+  return d3.range(0, size).map(function() {
+      var zip = rand(zips);
+      return {
+        name: rand(names),
+        zip: zip.zip,
+        city: [zip.city, zip.state].join(", ")
+      };
+  });
 }
 
 // export some stuff
