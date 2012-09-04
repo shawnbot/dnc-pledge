@@ -60,7 +60,7 @@ var icons = {
     "offset": [-6.5, -23]
   },
   "dnc": {
-    "url": "images/dnc-pin05.png",
+    "url": "images/dnc-pin06-outline.png",
     "width": 40,
     "height": 64,
     "offset": [-20, -62]
@@ -215,7 +215,7 @@ d3.csv(urls.zips, function(rows) {
     if (params.fake > 0) {
 
       pledges = makeFakePledges(params.fake);
-      console.log("created", pledges.length, "fake pledges:", pledges);
+      console.log("created", pledges.length, "fake pledges");
       doneLoading();
 
     } else {
@@ -974,7 +974,17 @@ function makeFakePledges(size) {
     "Eric H.",
     "Geraldine S.",
     "Jenny K.",
-    "Mark M."
+    "Mark M.",
+    "Andrea N.",
+    "Michal M.",
+    "Julie B.",
+    "Rachel B.",
+    "George O.",
+    "Bill C.",
+    "Zach W.",
+    "Jeff E.",
+    "Jesse T.",
+    "Leslie B."
   ];
   return d3.range(0, size).map(function() {
       var zip = rand(zips);
