@@ -2,7 +2,7 @@
 
 // parse query string params
 var params = (function(str) {
-  if (str.indexOf("=") > -1) {
+  if (str.length > 1) {
     if (str.charAt(0) === "?") str = str.substr(1);
     var query = {},
         parts = str.split("&"),
@@ -10,7 +10,9 @@ var params = (function(str) {
     for (var i = 0; i < len; i++) {
       var part = parts[i].split("="),
           key = part[0],
-          val = decodeURIComponent(part[1]),
+          val = parts.length > 1
+            ? decodeURIComponent(part[1])
+            : true,
           num = parseInt(val);
       query[key] = !isNaN(num) ? num : val;
     }
@@ -22,15 +24,14 @@ var params = (function(str) {
 
 // console.log("params:", JSON.stringify(params));
 
-var LIVE = params.live !== 0,
-    commitURI = params.uri || (LIVE ? "commit2vote.csv" : "commit.csv"),
-    secondsPerLoad = LIVE ? 60 : 600;
-// console.log("commit URI:", commitURI);
 var urls = {
   "zips":     "data/zips/zipcodes.csv",
-  "states":   "data/states/all.json",
-  "pledges":  "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/" + commitURI)
+  "states":   "data/states/all.json"
 };
+
+function getCommitURL(uri) {
+  return "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/" + uri);
+}
 
 // colors, confetti ordinal scale
 var colors = {
@@ -61,7 +62,7 @@ var icons = {
     "offset": [-6.5, -23]
   },
   "dnc": {
-    "url": "images/dnc-pin05.png",
+    "url": "images/dnc-pin06-outline.png",
     "width": 40,
     "height": 64,
     "offset": [-20, -62]
@@ -136,7 +137,7 @@ mapStyles = [
 
 // map options
 var options = {
-  "center":           new gm.LatLng(39.5, -95),
+  "center":           new gm.LatLng(39.5, -98),
   "zoom":             5,
   "mapTypeId":        gm.MapTypeId.ROADMAP,
   // no UI
@@ -202,7 +203,10 @@ d3.csv(urls.zips, function(rows) {
   d3.json(urls.states, function(collection) {
     time.mark("states.load");
 
-    states = collection.features;
+    states = collection.features.filter(function(feature) {
+      return feature.id !== "PR";
+    });
+
     states.forEach(function(feature) {
       statesByCode[feature.id] = feature;
     });
@@ -213,26 +217,53 @@ d3.csv(urls.zips, function(rows) {
     console.log("%d zips loaded in %s (parsed in %s)", zips.length, time.get("zips.load"), time.get("zips.parse"));
     console.log("%d states loaded in %s (parsed in %s)", states.length, time.get("states.load"), time.get("states.parse"));
 
-    // next, load the pledges
-    d3.csv(urls.pledges, function(rows) {
+    if (params.fake > 0) {
 
-      pledges = rows;
-      console.log("loaded", pledges.length, "pledges");
+      pledges = makeFakePledges(params.fake);
+      console.log("created", pledges.length, "fake pledges");
+      doneLoading();
 
-      exports.data = {
-        states: states,
-        statesByCode: statesByCode,
-        zips: zips,
-        zipsByCode: zipsByCode,
-        pledges: pledges
-      };
+    } else {
 
-      // wait for the projection, then init
-      waitForProjection(init);
+      var pledgeURL = getCommitURL("commit2vote-10min.csv");
+      // next, load the pledges
+      d3.csv(pledgeURL, function(rows) {
 
-    });
+        pledges = rows;
+        console.log("loaded", pledges.length, "pledges");
+
+        if (pledges.length > 100) {
+          console.log("all good; proceeding");
+
+          doneLoading();
+
+        } else {
+          console.warn("falling back on 24-hour feed");
+
+          var pledgeURL = getCommitURL("commit2vote-24hour.csv");
+          d3.csv(pledgeURL, function(rows) {
+            pledges = rows;
+            doneLoading();
+          });
+        }
+      });
+    }
+
   });
 });
+
+function doneLoading() {
+  exports.data = {
+    states: states,
+    statesByCode: statesByCode,
+    zips: zips,
+    zipsByCode: zipsByCode,
+    pledges: pledges
+  };
+
+  // wait for the projection, then init
+  waitForProjection(init);
+}
 
 var proj;
 /*
@@ -309,21 +340,23 @@ function init() {
 
   // repositioning info for Alaska and Hawaii
   statesByCode.AK.offset = {
-    translate: [266, 920],
+    translate: [252, 920],
     scale: .22
   };
   statesByCode.HI.offset = {
-    translate: [1038, -106],
+    translate: [969, -106],
     scale: 1
   };
+  /*
   statesByCode.PR.offset = {
     translate: [0, -142],
     scale: 1
   };
+  */
 
   statesByCode.AK.inset = true;
   statesByCode.HI.inset = true;
-  statesByCode.PR.inset = true;
+  // statesByCode.PR.inset = true;
 
   // inset rectangles
   var insetRects = [
@@ -340,19 +373,22 @@ function init() {
       "y": 910,
       "width": 150,
       "height": 130
-    },
+    } /*,
     {
       "state": "PR",
       "x": 1374,
       "y": 950,
       "width": 90,
       "height": 90
-    }
+    } */
     // TODO: Guam? (needs data)
   ];
 
+  var insetOffset = [0, 37];
+
   var insets = svg.append("g")
     .attr("id", "insets")
+    .attr("transform", "translate(" + insetOffset + ")")
     .selectAll("rect")
       .data(insetRects).enter().append("rect")
         .attr("id", function(r) { return "inset-" + r.state; })
@@ -395,12 +431,17 @@ function init() {
       if (d.offset) {
         var scale = d.offset.scale || 1;
         d.centroid = path.centroid(d);
+        d.offset.translate[0] += insetOffset[0];
+        d.offset.translate[1] += insetOffset[1];
         return "translate(" + d.offset.translate + ") " +
                "scale(" + [scale, scale] + ") ";
       } else {
         return "";
       }
     });
+
+  // hide Puerto Rico
+  d3.select("#PR").style("display", "none");
 
   time.mark("states.render");
 
@@ -521,20 +562,20 @@ function init() {
       .ease("in")
       .attr("transform", "scale(1.5,1.5)")
       .transition()
-        .delay(200)
+        .delay(205)
         .duration(100)
         .attr("transform", "scale(1,1)")
   }
 
   // "pop" a zip <g>
   function pop(zip) {
-    zip.pledges++;
-
     var g = d3.select(this);
     popIcon.call(this, zip);
 
     if (zip.rainy) {
-      makeItRain(g, randn(50, 100), randn(50, 75));
+      var numChads = randn(80, 100),
+          maxR = randn(80, 160);
+      makeItRain(g, numChads, maxR);
     }
   }
 
@@ -673,19 +714,35 @@ function init() {
   }
 
   var hasShownUniques = false,
-      iconPopTimeout;
+      iconPopTimeout,
+      nextPledgeTimeout,
+      nextPledge = function() {
+        console.warn("nextPledge() called with no pledges");
+      },
+      popNextIcon = function() {
+        console.warn("popNextIcon() called with no pledges");
+      };
+
   function startPledging() {
-    var msPerLoad = secondsPerLoad * 1000,
-        msPerPledge = (pledges.length > 1)
-          ? msPerLoad / (pledges.length - 1)
-          : msPerLoad / 2,
-        list = pledges.slice(),
-        timeout;
+    // msPerPledge is the time between showing labels for each
+    // pledge (in milliseconds)
+    var msPerPledge = 3500;
     if (params.spp) {
       msPerPledge = 1000 * params.spp;
     } else if (params.mspp) {
       msPerPledge = params.mspp;
+    } else {
     }
+
+    var loadDelay = pledges.length * msPerPledge;
+    if (loadDelay < 60000) {
+      msPerPledge = 60000 / pledges.length;
+    }
+
+    var list = pledges.slice()
+      .sort(function(a, b) {
+        return -1 + Math.random() * 2;
+      });
 
     tooltipExpiry = Math.max(100, msPerPledge - 600);
 
@@ -694,20 +751,23 @@ function init() {
       var uniqueZips = d3.nest()
         .key(function(pledge) { return pledge.zip; })
         .rollup(function(a) { return a[0]; })
-        .entries(pledges)
+        .entries(list)
         .map(function(entry) { return entry.values; })
         .sort(function(a, b) {
-            return -1 + Math.random() * 2;
+          return -1 + Math.random() * 2;
         });
 
       // console.log(uniqueZips.length, "unique zip code pledges...", uniqueZips[0]);
 
-      uniqueZips.forEach(function(pledge) {
+      var popsPerTick = params.ppt || 2;
+      uniqueZips.forEach(function(pledge, i) {
         // console.log("pledge:", pledge.zip);
         var zip = getZipByCode(pledge.zip);
         if (zip) {
           var g = getZipGroup(zip);
-          delay += 2;
+          if (i % popsPerTick === 0) {
+            delay += 10;
+          }
           setTimeout(function() {
             g.each(pop);
             // flashState(zip.state);
@@ -720,7 +780,9 @@ function init() {
     }
 
     var msPerIcon = 200;
-    function popNextIcon() {
+    popNextIcon = function() {
+      if (pledges.length === 0) return;
+
       var pledge = rand(pledges),
           zip = getZipByCode(pledge.zip);
       if (zip) {
@@ -730,37 +792,76 @@ function init() {
         zip.rainy = wasRainy;
       }
 
-      setTimeout(popNextIcon, randn(msPerIcon / 2, msPerIcon));
-    }
+      iconPopTimeout = setTimeout(popNextIcon, randn(msPerIcon / 2, msPerIcon));
+    };
 
-    setTimeout(popNextIcon, msPerIcon);
+    iconPopTimeout = setTimeout(popNextIcon, msPerIcon);
 
-    function nextPledge() {
+    nextPledge = function() {
       if (list.length) {
         var pledge = list.shift(),
             code = pledge.zip.substr(0, 5),
             zip = zipsByCode[code];
         if (zip) {
+          zip.pledges++;
           zip.rainy = true;
           popZip(zip, pledge.name, pledge.city);
         } else {
           popZipCode(code, pledge.name, pledge.city);
         }
 
-        timeout = setTimeout(nextPledge, msPerPledge);
+        nextPledgeTimeout = setTimeout(nextPledge, msPerPledge);
       } else {
-        var url = urls.pledges;
-        url += (url.indexOf("?") > -1 ? "?" : "&") + "?time=" + Date.now();
+        var url = getCommitURL("commit2vote-1min.csv");
         d3.csv(url, function(rows) {
-          pleges = data.pledges = rows;
+          if (rows.length > 0) {
+            pleges = data.pledges = rows;
+          } else {
+            console.warn("no pledges in 1-minute feed; reusing old pledges");
+          }
           startPledging();
         });
       }
-    }
+    };
 
-    setTimeout(nextPledge, delay);
-    // nextPledge();
+    nextPledgeTimeout = setTimeout(nextPledge, delay);
   }
+
+  var blurred = false;
+  window.addEventListener("blur", function() {
+      // if (blurred) return;
+
+      console.log("* blurred @", Date.now());
+      blurred = true;
+
+      d3.selectAll("circle.confetti")
+        .call(stopTransitions)
+        .remove();
+
+      tooltip
+        .style("opacity", 0)
+        .call(stopTransitions);
+
+      d3.selectAll("g.icon")
+        .attr("transform", "scale(1,1)")
+        .call(stopTransitions);
+
+      stateShapes
+        .call(stopTransitions)
+        .attr("fill", colors.stateOff);
+
+      clearTimeout(iconPopTimeout);
+      clearTimeout(nextPledgeTimeout);
+  });
+
+  window.addEventListener("focus", function() {
+      if (!blurred) return;
+
+      console.log("* focused @", Date.now());
+      blurred = false;
+      nextPledge();
+      popNextIcon();
+  });
 
   startPledging();
 
@@ -790,7 +891,7 @@ function makeItRain(container, numChads, maxR) {
 
   var tr = d3.scale.linear()
     .domain([-maxY, maxY])
-    .range([1, 3]);
+    .range([1, 4]);
   var offy = d3.scale.linear()
     .domain([0, Math.PI / 2, Math.PI, Math.PI * 3/2, Math.PI * 2])
     .range([0, 1, 1, .8, 1]);
@@ -810,7 +911,7 @@ function makeItRain(container, numChads, maxR) {
   });
 
   var tx = d3.scale.linear()
-    .domain([0, .3, .75, 1])
+    .domain([0, .25, .75, 1])
     .range([0, .75, 1, 1]);
   var ty = d3.scale.linear()
     .domain([0, .25, 1])
@@ -847,7 +948,7 @@ function makeItRain(container, numChads, maxR) {
         };
       })
       .attrTween("cy", function(d, i, y) {
-        var h = 60 + 50 * Math.max(0, (1 - d.dist / maxR)),
+        var h = maxR + maxR * Math.max(0, (1 - d.dist / maxR)),
             lerp = d3.interpolate(y, d.y);
         return function(t) {
           var dy = h * ty(t);
@@ -862,7 +963,9 @@ function makeItRain(container, numChads, maxR) {
         .duration(1000)
         .attr("r", 0)
         .each("end", function() {
-          this.parentNode.removeChild(this);
+          if (this.parentNode) {
+            this.parentNode.removeChild(this);
+          }
         });
 }
 
@@ -871,6 +974,43 @@ function fadeIn() {
     .delay(1000)
     .duration(2000)
     .style("opacity", 1);
+}
+
+function stopTransitions() {
+  this.transition()
+    .duration(0);
+}
+
+function makeFakePledges(size) {
+  var names = [
+    "Shawn A.",
+    "Daniel R.",
+    "Andrew B.",
+    "Jesse F.",
+    "Eric R.",
+    "Eric H.",
+    "Geraldine S.",
+    "Jenny K.",
+    "Mark M.",
+    "Andrea N.",
+    "Michal M.",
+    "Julie B.",
+    "Rachel B.",
+    "George O.",
+    "Bill C.",
+    "Zach W.",
+    "Jeff E.",
+    "Jesse T.",
+    "Leslie B."
+  ];
+  return d3.range(0, size).map(function() {
+      var zip = rand(zips);
+      return {
+        name: rand(names),
+        zip: zip.zip,
+        city: [zip.city, zip.state].join(", ")
+      };
+  });
 }
 
 // export some stuff
