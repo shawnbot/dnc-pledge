@@ -783,7 +783,7 @@ function init() {
 
   var blurred = false;
   window.addEventListener("blur", function() {
-      if (blurred) return;
+      // if (blurred) return;
 
       console.log("* blurred @", Date.now());
       blurred = true;
@@ -809,7 +809,7 @@ function init() {
   });
 
   window.addEventListener("focus", function() {
-      if (!blurred) return;
+      // if (!blurred) return;
 
       console.log("* focused @", Date.now());
       blurred = false;
