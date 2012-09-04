@@ -10,7 +10,7 @@ var params = (function(str) {
     for (var i = 0; i < len; i++) {
       var part = parts[i].split("="),
           key = part[0],
-          val = parts.length > 1
+          val = part.length > 1
             ? decodeURIComponent(part[1])
             : true,
           num = parseInt(val);
@@ -233,7 +233,7 @@ d3.csv(urls.zips, function(rows) {
 
     } else {
 
-      var pledgeURL = getCommitURL("commit2vote-10min.csv");
+      var pledgeURL = getCommitURL(params.uri || "commit2vote-10min.csv");
       // next, load the pledges
       d3.csv(pledgeURL, function(rows) {
 
