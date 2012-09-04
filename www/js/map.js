@@ -137,7 +137,7 @@ mapStyles = [
 
 // map options
 var options = {
-  "center":           new gm.LatLng(39.5, -95),
+  "center":           new gm.LatLng(39.5, -98),
   "zoom":             5,
   "mapTypeId":        gm.MapTypeId.ROADMAP,
   // no UI
@@ -340,11 +340,11 @@ function init() {
 
   // repositioning info for Alaska and Hawaii
   statesByCode.AK.offset = {
-    translate: [266, 920],
+    translate: [252, 920],
     scale: .22
   };
   statesByCode.HI.offset = {
-    translate: [1038, -106],
+    translate: [969, -106],
     scale: 1
   };
   /*
@@ -855,7 +855,7 @@ function init() {
   });
 
   window.addEventListener("focus", function() {
-      // if (!blurred) return;
+      if (!blurred) return;
 
       console.log("* focused @", Date.now());
       blurred = false;
@@ -963,7 +963,9 @@ function makeItRain(container, numChads, maxR) {
         .duration(1000)
         .attr("r", 0)
         .each("end", function() {
-          this.parentNode.removeChild(this);
+          if (this.parentNode) {
+            this.parentNode.removeChild(this);
+          }
         });
 }
 
