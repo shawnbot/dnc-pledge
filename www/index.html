@@ -195,6 +195,12 @@
       <h2>commit.barackobama.com</h2>
     </div>
     <div id="overlay"></div>
-    <script type="text/javascript" src="js/map.js"></script>
+    <script type="text/javascript">
+      var script = document.createElement("script");
+      script.type = "text/javascript";
+      script.src = "js/map.js?" + location.search;
+      document.getElementById("overlay").parentNode.appendChild(script);
+    </script>
+    <!-- <script type="text/javascript" src="js/map.js"></script> -->
   </body>
 </html>
