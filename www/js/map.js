@@ -155,6 +155,14 @@ var map = new gm.Map(document.getElementById("map"), options),
     zipsByCode = {},
     pledges = [];
 
+var logo = d3.select("#map")
+  .append("img")
+    .attr("id", "google-logo")
+    .attr("src", "images/goog-small.png")
+    .on("load", function() {
+        logo.style("margin-left", -this.width / 2 + "px");
+    });
+
 var stuff = d3.select("#map, #overlay")
   .style("opacity", 0);
 
