@@ -2,7 +2,7 @@
 
 // parse query string params
 var params = (function(str) {
-  if (str.indexOf("=") > -1) {
+  if (str.length > 1) {
     if (str.charAt(0) === "?") str = str.substr(1);
     var query = {},
         parts = str.split("&"),
@@ -10,7 +10,9 @@ var params = (function(str) {
     for (var i = 0; i < len; i++) {
       var part = parts[i].split("="),
           key = part[0],
-          val = decodeURIComponent(part[1]),
+          val = parts.length > 1
+            ? decodeURIComponent(part[1])
+            : true,
           num = parseInt(val);
       query[key] = !isNaN(num) ? num : val;
     }
