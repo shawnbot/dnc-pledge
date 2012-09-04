@@ -203,7 +203,10 @@ d3.csv(urls.zips, function(rows) {
   d3.json(urls.states, function(collection) {
     time.mark("states.load");
 
-    states = collection.features;
+    states = collection.features.filter(function(feature) {
+      return feature.id !== "PR";
+    });
+
     states.forEach(function(feature) {
       statesByCode[feature.id] = feature;
     });
@@ -344,14 +347,16 @@ function init() {
     translate: [1038, -106],
     scale: 1
   };
+  /*
   statesByCode.PR.offset = {
     translate: [0, -142],
     scale: 1
   };
+  */
 
   statesByCode.AK.inset = true;
   statesByCode.HI.inset = true;
-  statesByCode.PR.inset = true;
+  // statesByCode.PR.inset = true;
 
   // inset rectangles
   var insetRects = [
@@ -368,19 +373,22 @@ function init() {
       "y": 910,
       "width": 150,
       "height": 130
-    },
+    } /*,
     {
       "state": "PR",
       "x": 1374,
       "y": 950,
       "width": 90,
       "height": 90
-    }
+    } */
     // TODO: Guam? (needs data)
   ];
 
+  var insetOffset = [0, 37];
+
   var insets = svg.append("g")
     .attr("id", "insets")
+    .attr("transform", "translate(" + insetOffset + ")")
     .selectAll("rect")
       .data(insetRects).enter().append("rect")
         .attr("id", function(r) { return "inset-" + r.state; })
@@ -423,12 +431,17 @@ function init() {
       if (d.offset) {
         var scale = d.offset.scale || 1;
         d.centroid = path.centroid(d);
+        d.offset.translate[0] += insetOffset[0];
+        d.offset.translate[1] += insetOffset[1];
         return "translate(" + d.offset.translate + ") " +
                "scale(" + [scale, scale] + ") ";
       } else {
         return "";
       }
     });
+
+  // hide Puerto Rico
+  d3.select("#PR").style("display", "none");
 
   time.mark("states.render");
 
