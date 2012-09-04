@@ -630,6 +630,10 @@ function init() {
     var loc = [zip.lon, zip.lat],
         pos = zip.pos,
         state = statesByCode[zip.state];
+    if (!state) {
+      console.error("no such state:", zip.state, "zip:", zip);
+      return;
+    }
 
     // defaults
     title = title || zip.zip;
