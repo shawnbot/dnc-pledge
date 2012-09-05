@@ -30,7 +30,7 @@ var urls = {
 };
 
 function getCommitURL(uri) {
-  return "slimjim.php?url=" + encodeURI("http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/" + uri);
+  return "data/pledges/" + uri;
 }
 
 // colors, confetti ordinal scale
