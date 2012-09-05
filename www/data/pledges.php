@@ -38,7 +38,9 @@ if (!in_array($code, array(200, 201))) {
     exit();
 }
 
-if (substr($filename, -4) === ".csv") {
+if ($_GET['type']) {
+    $type = $_GET['type'];
+} else if (substr($filename, -4) === ".csv") {
     $type = "text/csv";
 }
 

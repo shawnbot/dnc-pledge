@@ -1,7 +1,7 @@
 RewriteEngine on
-RewriteCond %{REQUEST_FILENAME} -f [OR]
-RewriteRule pledges/(.+)$ http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/$1 [P]
-<IfModule mod_charset_lite.c>
-    CharsetSourceEnc ISO-5589-1
-    CharsetDefault UTF-8
-</IfModule>
+# RewriteCond %{REQUEST_FILENAME} -f [OR]
+# RewriteRule pledges/(.+)$ http://s3.amazonaws.com/fe62801166d8f0c4814d395147eaf91e.boprod.net/$1 [P]
+# <IfModule mod_charset_lite.c>
+#     CharsetSourceEnc ISO-8859-1
+#     CharsetDefault UTF-8
+# </IfModule>
