@@ -25,7 +25,7 @@ var params = (function(str) {
 // console.log("params:", JSON.stringify(params));
 
 var urls = {
-  "zips":     "data/zips/zipcodes.csv",
+  "zips":     "data/zips/zipcodes.csv?no=pr",
   "states":   "data/states/all.json"
 };
 
@@ -211,9 +211,7 @@ d3.csv(urls.zips, function(rows) {
   d3.json(urls.states, function(collection) {
     time.mark("states.load");
 
-    states = collection.features.filter(function(feature) {
-      return feature.id !== "PR";
-    });
+    states = collection.features;
 
     states.forEach(function(feature) {
       statesByCode[feature.id] = feature;
