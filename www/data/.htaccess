@@ -1,0 +1,3 @@
+# RewriteEngine on
+# RewriteCond %{REQUEST_FILENAME} -f [OR]
+# RewriteRule ^(.*)(/pledges)(/.+)$ $1$2.php$3
