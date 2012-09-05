@@ -30,7 +30,7 @@ var urls = {
 };
 
 function getCommitURL(uri) {
-  return "data/pledges/" + uri;
+  return "data/pledges.php/" + uri;
 }
 
 // colors, confetti ordinal scale
