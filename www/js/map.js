@@ -309,6 +309,15 @@ function waitForProjection(then) {
  */
 function init() {
 
+  // clean up the copyright bits
+  var copyright = d3.select("#map .gmnoprint > div:first-child")
+    .style("background", "none");
+  copyright.selectAll("*")
+    .style("font-size", "12px")
+    .style("color", colors.stateOff)
+    .style("text-decoration", "none");
+
+  // fade in stuff (map, svg)
   stuff.call(fadeIn);
 
   // get the overlay div as a d3 selection,
