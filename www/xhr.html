@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>XHR test</title>
+        <style type="text/css">
+            textarea {
+                width: 100%;
+                height: auto;
+                min-height: 10em;
+            }
+
+            .error {
+                color: #c00;
+            }
+        </style>
+        <script type="text/javascript" src="js/vendor/d3.v2.min.js"></script>
+    </head>
+    <body>
+        <textarea id="output"></textarea>
+        <textarea id="csv"></textarea>
+        <script>
+            var xhr = new XMLHttpRequest(),
+                out = document.getElementById("output");
+            xhr.onload = function() {
+                out.value = xhr.responseText;
+                console.log("loaded:", xhr);
+            };
+            xhr.onerror = function() {
+                out.classList.add("error");
+                out.value = xhr.responseText;
+                console.warn("error:", xhr);
+            };
+
+            var url = "data/pledges/commit.csv?time=" + Date.now();
+            xhr.open("GET", url);
+            xhr.send();
+
+            var csv = d3.select("#csv");
+            d3.csv(url, function(rows) {
+                csv.text(JSON.stringify(rows, 2));
+            });
+        </script>
+    </body>
+</html>
