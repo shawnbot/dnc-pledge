@@ -30,6 +30,7 @@
     $res = $req->sendRequest();
     $code = $req->getResponseCode();
     $type = $req->getResponseHeader('content-type');
+    $filename = array_pop(explode("/", $url->path));
     
     if(!in_array($code, array(200, 201)))
     {
@@ -40,7 +41,8 @@
 
     header('HTTP/1.1 200');
     header('Cache-Control: public');
-    header("Content-Type: $type;encoding=utf-8");
+    header("Content-Type: text/plain;encoding=utf-8");
+    header("Content-Disposition: inline;filename=$filename");
     header('Last-Modified: '.$req->getResponseHeader('last-modified'));
     header('Date: '.$req->getResponseHeader('date'));
     header('Etag: '.$req->getResponseHeader('etag'));
