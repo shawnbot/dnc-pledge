@@ -765,10 +765,12 @@ function init() {
 
     tooltipExpiry = Math.max(100, msPerPledge - 600);
 
-    var delay = 500;
+    var delay = 500,
+        zipPrecision = params.zipp || 5;
     if (!hasShownUniques) {
+      console.log("grouping zip codes with", zipPrecision + "-char precision...");
       var uniqueZips = d3.nest()
-        .key(function(pledge) { return pledge.zip; })
+        .key(function(pledge) { return pledge.zip.substr(0, zipPrecision); })
         .rollup(function(a) { return a[0]; })
         .entries(list)
         .map(function(entry) { return entry.values; })
@@ -776,7 +778,7 @@ function init() {
           return -1 + Math.random() * 2;
         });
 
-      // console.log(uniqueZips.length, "unique zip code pledges...", uniqueZips[0]);
+      console.log("got", uniqueZips.length, "unique zip codes; first:", uniqueZips[0]);
 
       var popsPerTick = params.ppt || 2;
       uniqueZips.forEach(function(pledge, i) {
