@@ -31,15 +31,15 @@ $type = $req->getResponseHeader('content-type');
 $cors = $req->getResponseHeader('access-control-allow-origin');
 $filename = array_pop(explode("/", $uri));
 
-if (substr($filename, -4) === ".csv") {
-    $type = "text/csv";
-}
-
 if (!in_array($code, array(200, 201))) {
     header('HTTP/1.1 400');
     header("Content-Type: $type");
     print $req->getResponseBody();
     exit();
+}
+
+if (substr($filename, -4) === ".csv") {
+    $type = "text/csv";
 }
 
 header('HTTP/1.1 200');
