@@ -506,8 +506,6 @@ function init() {
   time.mark("zips.draw");
   console.log("drew zips in %s", time.get("zips.draw"));
 
-  var confetti = params.confetti != "0";
-
   // clicking a square "pops" it
   stateShapes.on("click", function(state) {
     var e = d3.event,
