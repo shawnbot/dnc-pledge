@@ -195,7 +195,9 @@ d3.csv(urls.zips, function(rows) {
   time.mark("zips.load");
 
   // zips[] is our array of zip codes
-  zips = rows;
+  zips = rows.filter(function(row) {
+    return row.state !== "MH";
+  });
   // and zipsByCode{} is our hash by 5-digit zip code
   zips.forEach(function(row) {
     // coerce lat and lon columns into floats
